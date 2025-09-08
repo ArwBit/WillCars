@@ -1,0 +1,2217 @@
+server.js
+const multer = require('multer');
+require('dotenv').config();
+// ###############################################################
+// AÑADIR ESTE CONSOLE.LOG PARA VERIFICAR EL JWT_SECRET EN LA TERMINAL
+console.log('JWT_SECRET cargado en el servidor:', process.env.JWT_SECRET);
+// ###############################################################
+
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
+const pool = require('./db');
+const logger = require('./logger');
+const salesRouter = require('./routes/sales');
+const jwt = require('jsonwebtoken'); // ################# AÑADIDO: Importar jwt aquí, fuera del io.use #################
+
+const app = express();
+const server = http.createServer(app);
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:5817',
+    'http://127.0.0.1:5817',
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
+const io = new Server(server, {
+    cors: {
+        origin: allowedOrigins,
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'] // Añadir 'x-auth-token' si lo usas
+    }
+});
+logger.info('Socket.IO inicializado, cliente disponible en /socket.io/socket.io.js');
+
+// Configurar multer para manejar subidas de archivos
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadPath = path.join(__dirname, 'Uploads'); // Asume 'Uploads' está al lado de server.js
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
+const upload = multer({
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'text/csv' || file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Solo se permiten archivos CSV o imágenes'), false);
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 } // Límite de 5MB
+});
+
+// Probar conexión a la base de datos
+pool.connect((err) => {
+    if (err) {
+        logger.error('Error conectando a la base de datos:', err);
+        process.exit(1);
+    }
+    logger.info('Conexión a la base de datos exitosa');
+});
+
+// Middlewares
+app.use(cors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'], // Añadir 'x-auth-token'
+    credentials: true
+}));
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: [
+                "'self'",
+                'https://code.jquery.com',
+                'https://cdn.jsdelivr.net',
+                'http://localhost:3000', // Agregado aquí para scripts si se sirven desde ese origen
+                'http://localhost:8080',
+                'http://localhost:5817',
+                'https://cdnjs.cloudflare.com',
+                'https://stackpath.bootstrapcdn.com',
+                'https://cdn.socket.io',
+                'https://ajax.googleapis.com',
+                "'unsafe-inline'"
+            ],
+            scriptSrcAttr: ["'unsafe-inline'"],
+            styleSrc: [
+                "'self'",
+                'https://cdn.jsdelivr.net',
+                'https://cdnjs.cloudflare.com',
+                'https://stackpath.bootstrapcdn.com',
+                'https://fonts.googleapis.com',
+                "'unsafe-inline'"
+            ],
+            fontSrc: [
+                "'self'",
+                'https://cdnjs.cloudflare.com',
+                'https://fonts.gstatic.com'
+            ],
+            imgSrc: [
+                "'self'",
+                'http://localhost:3000', // ################# CORRECCIÓN CSP: Eliminado '/Uploads' #################
+                'http://localhost:8080',
+                'http://localhost:5817',
+                'data:',
+            ],
+            connectSrc: [
+                "'self'",
+                'http://localhost:3000',
+                'ws://localhost:3000',
+                'wss://localhost:3000',
+                'http://localhost:8080',
+                'ws://localhost:8080',
+                'http://localhost:5817',
+                'ws://localhost:5817'
+            ],
+            formAction: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'none'"],
+            frameSrc: ["'none'"]
+        }
+    }
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Middleware para manejar errores de Multer
+const handleMulterError = (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        logger.error(`Error de Multer: ${err.message}, campo: ${err.field}`);
+        return res.status(400).json({ error: `Error al procesar el archivo: ${err.message}` });
+    }
+    logger.error(`Error no Multer: ${err.message}`);
+    next(err);
+};
+
+// Depuración de rutas estáticas
+//logger.info('Configurando ruta estática para frontend:', path.join(__dirname, '../frontend')); // Ya no es necesario este log
+//logger.info('Configurando ruta estática para frontend/admin:', path.join(__dirname, '../frontend/admin')); // Ya no es necesario este log
+
+// Servir archivos estáticos
+// ###############################################################
+// CORRECCIÓN RUTA ESTATICA: Asume que el frontend está en la carpeta 'frontend' al lado de 'server.js'
+app.use(express.static(path.join(__dirname, '../frontend'))); // Si server.js está en /backend, esto apunta a /frontend
+app.use('/supplier_logos', express.static(path.join(__dirname, '..', 'frontend', 'img', 'ico')));
+
+app.use('/Uploads', cors({
+    origin: allowedOrigins,
+    methods: ['GET'],
+    allowedHeaders: ['Content-Type']
+}), express.static(path.join(__dirname, 'Uploads'))); // Asume 'Uploads' está al lado de server.js
+
+// Si el frontend tiene sus archivos CSS/JS/Images directamente en /frontend/css, /frontend/js, /frontend/images
+// Y si no los tienes en el 'app.use(express.static(path.join(__dirname, '../frontend')));' principal
+// Es mejor que estén cubiertos por la primera directiva, pero si no, estas pueden ser útiles:
+// app.use('/css', express.static(path.join(__dirname, '../frontend/css')));
+// app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
+// app.use('/images', express.static(path.join(__dirname, '../frontend/images')));
+
+// Rutas API
+logger.info('Registrando rutas API');
+app.use('/api/auth', require('./routes/auth').router);
+app.use('/api/users', require('./routes/users'));
+app.use('/api/products', require('./routes/products'));
+app.use('/api/orders', require('./routes/orders')(io)); // Pasar 'io' a ordersRoutes
+app.use('/api/proveedores', require('./routes/proveedores'));
+app.use('/api/sales', salesRouter);
+app.use('/api/customer-orders', require('./routes/customerOrders'));
+app.use('/api/stats', require('./routes/stats'));
+app.use('/api/newsletter', require('./routes/newsletter'));
+app.use('/api/settings', require('./routes/settings'));
+
+// WebSocket con autenticación
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    logger.info(`Intentando autenticar WebSocket con token: ${token ? 'presente' : 'no proporcionado'}`);
+    if (!token) {
+        logger.error('No se proporcionó token para WebSocket');
+        return next(new Error('Autenticación requerida'));
+    }
+    try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.user = decoded;
+        logger.info(`Token válido para WebSocket, id: ${decoded.id}`);
+        next();
+    } catch (error) {
+        logger.error(`Error verificando token WebSocket: ${error.message}`);
+        return next(new Error('Token inválido'));
+    }
+});
+
+io.on('connection', (socket) => {
+    logger.info(`Cliente conectado: ${socket.id}, id: ${socket.user?.id || 'desconocido'}`); // user.id será 'desconocido' si la autenticación está desactivada
+    socket.on('productUpdated', (data) => {
+        logger.info('Producto actualizado, notificando:', data);
+        io.emit('productUpdated', data);
+    });
+    socket.on('newOrder', (data) => {
+        logger.info('Nuevo pedido recibido:', data);
+        io.emit('newOrder', data);
+    });
+    socket.on('disconnect', () => {
+        logger.info(`Cliente desconectado: ${socket.id}, id: ${socket.user?.id || 'desconocido'}`);
+    });
+});
+
+app.set('io', io);
+
+// Manejo de rutas no encontradas
+app.use((req, res) => {
+    logger.warn(`Ruta no encontrada: ${req.originalUrl}`);
+    res.status(404).json({ error: 'Ruta no encontrada' });
+});
+
+// Middleware para manejar errores no capturados
+app.use((err, req, res, next) => {
+    logger.error(`Error no manejado: ${err.message}, stack: ${err.stack}`);
+    // console.log(`Error no manejado: ${err.message}, stack: ${err.stack}`); // Quita este console.log, ya tienes logger.error
+    res.status(500).json({ error: 'Error interno del servidor', message: err.message });
+});
+
+// Iniciar servidor
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    logger.info(`Servidor corriendo en http://localhost:${PORT}`);
+});
+buscador.js
+let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+let cart = JSON.parse(localStorage.getItem('cart')) || [];
+let indexToRemove = null;
+const API_URL = 'http://localhost:3000/api';
+
+function showNotification(message, isError = false) {
+    const notification = document.getElementById('notification');
+    if (!notification) {
+        console.warn('Elemento #notification no encontrado');
+        return;
+    }
+    notification.textContent = message;
+    notification.classList.remove('error');
+    if (isError) notification.classList.add('error');
+    notification.classList.add('show');
+    setTimeout(() => notification.classList.remove('show'), 3000);
+}
+
+function closeCart() {
+    const cartSidebar = document.getElementById('cartSidebar');
+    if (cartSidebar) cartSidebar.classList.remove('show');
+}
+
+function closeModal() {
+    document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
+}
+
+function openRequestModal() {
+    // COMENTA O ELIMINA ESTAS LÍNEAS SI QUIERES PERMITIR PEDIDOS SIN INICIAR SESIÓN
+    // if (!currentUser) {
+    //     showNotification('Por favor, inicia sesión para solicitar un pedido', true);
+    //     showLoginModal();
+    //     return;
+    // }
+    const requestModal = document.getElementById('requestModal');
+    if (requestModal) {
+        requestModal.classList.add('show');
+        const emailBtn = document.querySelector('.contact-method-btn[data-method="email"]');
+        if (emailBtn) {
+            document.querySelectorAll('.contact-method-btn').forEach(b => b.classList.remove('selected'));
+            emailBtn.classList.add('selected');
+            updateContactInputs();
+        }
+    } else {
+        console.warn('Elemento #requestModal no encontrado');
+        showNotification('Error: Modal de pedido no encontrado');
+    }
+}
+
+function updateContactInputs() {
+    const selectedBtn = document.querySelector('.contact-method-btn.selected');
+    const contactMethod = selectedBtn ? selectedBtn.dataset.method : 'email';
+    const emailInput = document.getElementById('emailInput');
+    const whatsappInput = document.getElementById('whatsappInput');
+    const emailInputGroup = document.getElementById('emailInputGroup');
+    const whatsappInputGroup = document.getElementById('whatsappInputGroup');
+    const contactInput = document.querySelector('.contact-input');
+
+    if (!emailInput || !whatsappInput || !emailInputGroup || !whatsappInputGroup || !contactInput) {
+        console.warn('Elementos de contacto no encontrados');
+        showNotification('Error: Campos de contacto no encontrados', true);
+        return;
+    }
+
+    contactInput.style.display = 'block';
+    emailInputGroup.style.display = contactMethod === 'email' || contactMethod === 'both' ? 'block' : 'none';
+    whatsappInputGroup.style.display = contactMethod === 'whatsapp' || contactMethod === 'both' ? 'block' : 'none';
+    emailInput.disabled = contactMethod === 'whatsapp';
+    whatsappInput.disabled = contactMethod === 'email';
+    emailInput.required = contactMethod === 'email' || contactMethod === 'both';
+    whatsappInput.required = contactMethod === 'whatsapp' || contactMethod === 'both';
+}
+
+function generateOrderText() {
+    let orderDetails = '=== Pedido de Will Cars ===\n\n';
+    orderDetails += `Usuario: ${currentUser ? currentUser.email : 'Anónimo'}\n`;
+    orderDetails += `Código Cliente: ${currentUser ? currentUser.client_code : 'N/A'}\n`;
+    const method = document.querySelector('.contact-method-btn.selected')?.dataset.method;
+    const emailInput = document.getElementById('emailInput')?.value;
+    const whatsappInput = document.getElementById('whatsappInput')?.value;
+    if (method === 'email' && emailInput) orderDetails += `Email: ${emailInput}\n`;
+    if (method === 'whatsapp' && whatsappInput) orderDetails += `WhatsApp: ${whatsappInput}\n`;
+    orderDetails += '\nProductos:\n';
+    orderDetails += 'CÓDIGO     | Producto                                     | Ref        | Cantidad | Subtotal\n';
+    orderDetails += '----------|---------------------------------------------|----------|----------|---------\n';
+    let total = 0;
+    cart.forEach(item => {
+        if (!item.code || !item.ref || !item.quantity) return;
+        const subtotal = item.ref * item.quantity;
+        total += subtotal;
+        const code = item.code.padEnd(10);
+        const description = item.description.substring(0, 42).padEnd(42);
+        // CAMBIO 1: Formatear 'ref' para mostrar "N/A" si es 0
+        const refDisplay = item.ref === 0 ? 'N/A' : `$${item.ref.toFixed(2)}`;
+        const ref = refDisplay.padEnd(10);
+        const quantity = item.quantity.toString().padEnd(10);
+        const subtotalStr = `$${subtotal.toFixed(2)}`;
+        orderDetails += `${code}| ${description}| ${ref}| ${quantity}| ${subtotalStr}\n`;
+    });
+    orderDetails += '\n';
+    orderDetails += `Total: $${total.toFixed(2)}\n`;
+    orderDetails += '=========================\n';
+    return orderDetails;
+}
+
+function showOrder() {
+    const orderSummary = document.getElementById('orderSummary');
+    const downloadBtn = document.getElementById('downloadPreviewBtn');
+    const buttonGroup = document.querySelector('.button-group');
+    const showOrderBtn = document.getElementById('showOrderBtn');
+    if (!orderSummary || !downloadBtn || !buttonGroup) {
+        showNotification('Error: Elementos del pedido no encontrados', true);
+        return;
+    }
+    const method = document.querySelector('.contact-method-btn.selected')?.dataset.method;
+    const emailInput = document.getElementById('emailInput')?.value;
+    const whatsappInput = document.getElementById('whatsappInput')?.value;
+    if (!method) {
+        showNotification('Por favor, selecciona un método de contacto.');
+        return;
+    }
+    if ((method === 'email' || method === 'both') && !emailInput) {
+        showNotification('Por favor, ingresa un email válido.');
+        return;
+    }
+    if ((method === 'whatsapp' || method === 'both') && !whatsappInput) {
+        showNotification('Por favor, ingresa un número de WhatsApp válido.');
+        return;
+    }
+    if (cart.length === 0) {
+        orderSummary.innerText = 'El carrito está vacío.';
+        orderSummary.style.display = 'block';
+        downloadBtn.style.display = 'none';
+        buttonGroup.style.display = 'none';
+        showOrderBtn.style.display = 'none';
+        return;
+    }
+    try {
+        const orderText = generateOrderText();
+        orderSummary.innerText = orderText;
+        orderSummary.style.display = 'block';
+        downloadBtn.style.display = 'block';
+        buttonGroup.style.display = 'flex';
+        showOrderBtn.style.display = 'none';
+        downloadBtn.onclick = () => {
+            try {
+                const blob = new Blob([orderText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pedido_willcars_${currentUser?.client_code || 'anon'}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error al descargar pedido:', error);
+                showNotification('Error al descargar el pedido');
+            }
+        };
+    } catch (error) {
+        console.error('Error al mostrar pedido:', error);
+        showNotification('Error al mostrar el pedido');
+    }
+}
+
+async function loadProducts(searchTerm = '', page = 1, limit = 10) {
+    try {
+        const url = `${API_URL}/products?page=${page}&limit=${limit}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const data = await response.json();
+        renderProducts(data.products);
+    } catch (error) {
+        console.error('Error al cargar productos:', error);
+        showNotification('Error al cargar productos');
+    }
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function resetSearch() {
+    const searchInput = document.getElementById('searchProducts');
+    if (searchInput) {
+        searchInput.value = '';
+        loadProducts();
+    }
+}
+
+function renderProducts(filteredProducts) {
+    const tbody = document.getElementById('productTableBody');
+    const container = document.getElementById('productTableContainer');
+    if (!tbody || !container) {
+        console.error('Tabla de productos no encontrada');
+        showNotification('Error: Tabla de productos no encontrada', true);
+        return;
+    }
+    tbody.innerHTML = '';
+    if (!Array.isArray(filteredProducts) || filteredProducts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="no-results">No se encontraron productos</td></tr>';
+        return;
+    }
+    const fragment = document.createDocumentFragment();
+    try {
+        filteredProducts.forEach((product, index) => {
+            console.log(`Procesando producto ${index}:`, product);
+            if (!product.id || !product.code || !product.description) {
+                console.warn(`Producto ${index} con datos incompletos:`, product);
+                return;
+            }
+            const imageSrc = product.image_path
+                ? `http://localhost:3000${DOMPurify.sanitize(product.image_path)}`
+                : '/img/willcars-1.jpg';
+            console.log(`Imagen para producto ${index}: ${imageSrc}`);
+            
+            // CAMBIO 2: Formatear 'usd' para mostrar "N/A" si es 0
+            const usdDisplay = parseFloat(product.usd || 0);
+            const usdFormatted = usdDisplay === 0 ? 'N/A' : `$${usdDisplay.toFixed(2)}`;
+
+            // CAMBIO 3: Formatear 'ref' para mostrar "N/A" si es 0
+            const refDisplay = parseFloat(product.ref || 0);
+            const refFormatted = refDisplay === 0 ? 'N/A' : `$${refDisplay.toFixed(2)}`;
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><img src="${imageSrc}" alt="${DOMPurify.sanitize(product.description || 'Producto')}" onerror="this.src='/img/willcars-1.jpg'" width="100"></td>
+                <td>${DOMPurify.sanitize(product.code || '')}</td>
+                <td>${DOMPurify.sanitize(product.description || '')}</td>
+                <td>${DOMPurify.sanitize(product.brand || '-')}</td>
+                <td>${DOMPurify.sanitize(product.model || '-')}</td>
+                <td>${DOMPurify.sanitize(product.proveedor_id || '-')}</td>
+                <td>${usdFormatted}</td>
+                <td>${refFormatted}</td>
+                <td>
+                    <button class="btn-action btn-cart"><i class="fas fa-cart-plus"></i></button>
+                    <button class="btn-action btn-details" data-code="${DOMPurify.sanitize(product.code || '')}"><i class="fas fa-info-circle"></i></button>
+                </td>
+            `;
+            fragment.appendChild(row);
+        });
+        tbody.appendChild(fragment);
+        // Asignar eventos
+        tbody.querySelectorAll('.btn-cart').forEach((btn, idx) => {
+            btn.addEventListener('click', (event) => addToCart(event, filteredProducts[idx]));
+        });
+        tbody.querySelectorAll('.btn-details').forEach(btn => {
+            btn.addEventListener('click', () => showDetails(btn.dataset.code));
+        });
+        console.log('Productos renderizados en la tabla');
+    } catch (error) {
+        console.error('Error al renderizar productos:', error);
+        showNotification('Error al renderizar productos', true);
+    }
+}
+
+async function addToCart(event, product) {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+        const existingItem = cart.find(item => item.code === product.code);
+        if (existingItem) {
+            existingItem.quantity += 1;
+        } else {
+            cart.push({
+                id: product.id,
+                code: product.code,
+                description: product.description,
+                ref: parseFloat(product.ref || 0), // Mantener parseFloat aquí para asegurar un número
+                quantity: 1
+            });
+        }
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount();
+        renderCart();
+        showNotification(`Producto ${product.description} añadido al carrito`, false);
+    } catch (error) {
+        console.error('Error al añadir al carrito:', error);
+        showNotification('Error al añadir al carrito', true);
+    }
+}
+
+async function showDetails(code) {
+    try {
+        const response = await fetch(`${API_URL}/products/${code}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al obtener producto');
+        }
+        const product = await response.json();
+        const modalTitle = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+        const detailsModal = document.getElementById('detailsModal');
+        if (!modalTitle || !modalContent || !detailsModal) {
+            console.error('Elementos del modal no encontrados');
+            showNotification('Error: Modal de detalles no configurado');
+            return;
+        }
+        modalTitle.textContent = product.description;
+
+        // CAMBIO 4: Formatear 'usd' para mostrar "N/A" si es 0 en el modal de detalles
+        const usdDetailDisplay = parseFloat(product.usd || 0);
+        const usdDetailFormatted = usdDetailDisplay === 0 ? 'N/A' : `$${usdDetailDisplay.toFixed(2)}`;
+
+        // CAMBIO 5: Formatear 'ref' para mostrar "N/A" si es 0 en el modal de detalles
+        const refDetailDisplay = parseFloat(product.ref || 0);
+        const refDetailFormatted = refDetailDisplay === 0 ? 'N/A' : `$${refDetailDisplay.toFixed(2)}`;
+
+        modalContent.innerHTML = `
+            <p><strong>Código:</strong> ${DOMPurify.sanitize(product.code)}</p>
+            <p><strong>Descripción:</strong> ${DOMPurify.sanitize(product.description)}</p>
+            <p><strong>Marca:</strong> ${DOMPurify.sanitize(product.brand || '-')}</p>
+            <p><strong>Modelo:</strong> ${DOMPurify.sanitize(product.model || '-')}</p>
+            <p><strong>Precio USD:</strong> ${usdDetailFormatted}</p>
+            <p><strong>Ref:</strong> ${refDetailFormatted}</p>
+            ${product.discount ? `<p><strong>Descuento:</strong> ${parseFloat(product.discount).toFixed(2)}%</p>` : ''}
+            <p><strong>Proveedor:</strong> ${DOMPurify.sanitize(product.proveedor_id || '-')}</p>
+        `;
+        detailsModal.classList.add('show');
+    } catch (error) {
+        console.error('Error al mostrar detalles:', error);
+        showNotification('Error al mostrar detalles: ' + error.message);
+    }
+}
+
+function updateCartCount() {
+    const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    document.querySelectorAll('.cart-count').forEach(el => el.textContent = totalItems);
+}
+
+function renderCart() {
+    const cartItems = document.getElementById('cartItems');
+    if (!cartItems) {
+        console.warn('Elemento #cartItems no encontrado');
+        return;
+    }
+    cartItems.innerHTML = '';
+    let total = 0;
+    cart.forEach((item, index) => {
+        if (!item.code || !item.ref || !item.quantity) return;
+        const subtotal = item.ref * item.quantity;
+        total += subtotal;
+        const row = document.createElement('tr');
+        // CAMBIO 6: Formatear 'ref' para mostrar "N/A" si es 0 en el carrito
+        const refCartDisplay = item.ref === 0 ? 'N/A' : `$${item.ref.toFixed(2)}`;
+
+        row.innerHTML = `
+            <td>${DOMPurify.sanitize(item.code)}</td>
+            <td>${DOMPurify.sanitize(item.description)}</td>
+            <td>${refCartDisplay}</td>
+            <td>
+                <div class="quantity-controls">
+                    <button class="quantity-btn cart-quantity-btn" data-index="${index}" data-action="decrease">-</button>
+                    <span class="quantity-value">${item.quantity}</span>
+                    <button class="quantity-btn cart-quantity-btn" data-index="${index}" data-action="increase">+</button>
+                </div>
+            </td>
+            <td>$${subtotal.toFixed(2)}</td>
+            <td>
+                <button class="btn-action btn-cart delete-btn" data-index="${index}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        cartItems.appendChild(row);
+    });
+
+    cartItems.querySelectorAll('.cart-quantity-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const index = parseInt(e.target.dataset.index);
+            const action = e.target.dataset.action;
+            if (action === 'increase') {
+                updateQuantity(index, cart[index].quantity + 1);
+            } else if (action === 'decrease' && cart[index].quantity > 1) {
+                updateQuantity(index, cart[index].quantity - 1);
+            } else if (action === 'decrease') {
+                showConfirmModal(index);
+            }
+            // La siguiente línea para deshabilitar el botón no es necesaria aquí y puede causar problemas
+            // btn.disabled = btn.dataset.action === 'decrease' && cart[parseInt(btn.dataset.index)].quantity <= 1;
+        });
+    });
+
+    cartItems.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const index = parseInt(e.target.closest('.delete-btn').dataset.index);
+            showConfirmModal(index);
+        });
+    });
+
+    const cartTotal = document.getElementById('cartTotal');
+    if (cartTotal) cartTotal.textContent = `$${total.toFixed(2)}`;
+}
+
+function updateQuantity(index, newQuantity) {
+    if (!cart[index]) return;
+    newQuantity = parseInt(newQuantity);
+    if (newQuantity >= 1) {
+        cart[index].quantity = newQuantity;
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount();
+        renderCart();
+    } else {
+        showConfirmModal(index);
+    }
+}
+
+function showConfirmModal(index) {
+    if (!cart[index]) return;
+    indexToRemove = index;
+    document.getElementById('confirmMessage').textContent = `¿Desea eliminar este producto: ${cart[index].description}?`;
+    const confirmModal = document.getElementById('confirmModal');
+    confirmModal?.classList.add('show');
+}
+
+function removeFromCart() {
+    if (indexToRemove === null || !cart[indexToRemove]) return;
+    const item = cart[indexToRemove];
+    cart.splice(indexToRemove, 1);
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    renderCart();
+    closeModal();
+    indexToRemove = null;
+    showNotification(`Producto ${item.description} eliminado del carrito`);
+}
+
+function openCart() {
+    renderCart();
+    document.getElementById('cartSidebar').classList.add('show');
+}
+
+function showLoginModal() {
+    const loginModal = document.getElementById('loginModal');
+    loginModal?.classList.add('show');
+}
+
+function showRegisterModal() {
+    closeModal();
+    const registerModal = document.getElementById('registerModal');
+    registerModal?.classList.add('show');
+}
+
+// buscador.js
+
+async function sendOrder() {
+    // # Este bloque de verificación de token ORIGINAL (que ya comentaste) está bien así:
+    // # Ya NO NECESITAMOS FORZAR EL LOGIN PARA COMPRAR COMO INVITADO
+    // ###############################################################
+    // const token = localStorage.getItem('token');
+    // if (!token) {
+    //    showNotification('Por favor, inicia sesión para realizar un pedido', true);
+    //    return;
+    // }
+    // ###############################################################
+
+    const method = document.querySelector('.contact-method-btn.selected')?.dataset.method;
+    const emailInput = document.getElementById('emailInput')?.value?.trim();
+    let whatsappInput = document.getElementById('whatsappInput')?.value?.trim();
+
+    // <-- NUEVO: Obtener los valores del nombre y código del cliente
+    const customerNameInputElem = document.getElementById('customerNameInput'); // Referencia al elemento input
+    const customerName = customerNameInputElem ? customerNameInputElem.value.trim() : ''; // Valor
+    
+    const customerCodeInputElem = document.getElementById('customerCode'); // Referencia al elemento input
+    const customerCode = customerCodeInputElem ? customerCodeInputElem.value.trim() : ''; // Valor
+    // <-- FIN NUEVO
+
+    if (!method) {
+        showNotification('Selecciona un método de contacto.', true);
+        return;
+    }
+    if ((method === 'email' || method === 'both') && (!emailInput || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput))) {
+        showNotification('Ingresa un email válido.', true);
+        return;
+    }
+    if ((method === 'whatsapp' || method === 'both') && (!whatsappInput || !/^\+?\d{10,15}$/.test(whatsappInput))) {
+        showNotification('Ingresa un número de WhatsApp válido.', true);
+        return;
+    }
+
+    // <-- NUEVO: Validación de frontend para el nombre del cliente
+    if (!customerName) {
+        showNotification('Por favor, ingresa el Nombre Completo del cliente.', true);
+        customerNameInputElem.focus(); // Opcional: enfocar el campo para que el usuario sepa qué falta
+        return;
+    }
+    // <-- FIN NUEVO
+
+    let whatsappInputNormalized = whatsappInput ? whatsappInput.replace(/\D/g, '') : '';
+    // Si no empieza con '+', asumimos que es de Venezuela y le ponemos '+58'
+    // Elimina el '0' inicial si lo tiene (ej. 04121234567 -> 4121234567)
+    if (whatsappInputNormalized && !whatsappInputNormalized.startsWith('+')) {
+        whatsappInputNormalized = `+58${whatsappInputNormalized.replace(/^0/, '')}`;
+    }
+
+    if (cart.length === 0) {
+        showNotification('El carrito está vacío.', true);
+        return;
+    }
+
+    // --- IMPORTANTE: ELIMINAR EL CÁLCULO DEL TOTAL Y DETALLES DE ITEMS AQUÍ ---
+    // El backend se encarga de esto por seguridad.
+    const itemsForOrder = cart.map(item => {
+        return {
+            product_id: item.code, // Usamos 'code' como product_id, asegúrate que sea el ID correcto
+            quantity: item.quantity
+            // NO ENVIAMOS ref, subtotal, description desde el frontend.
+            // El backend los obtendrá de la base de datos de forma segura.
+        };
+    });
+
+    const orderData = {
+        // user_id: currentUser ? currentUser.id : null, // Este campo ya no se envía desde el frontend en el body.
+                                                // Si el usuario está logueado, el user_id se obtendrá del token en el backend.
+        contact_method: method, // Usar 'method' aquí
+        email: emailInput,     // Usar 'emailInput' aquí
+        whatsapp: whatsappInputNormalized, // Usar el número normalizado
+        items: itemsForOrder,
+        // <-- NUEVO: Añadir customer_name y customer_code al objeto que se envía
+        customer_name: customerName,
+        customer_code: customerCode
+        // <-- FIN NUEVO
+        // NO ENVIAMOS 'total' desde el frontend. El backend lo calcula.
+    };
+
+    try {
+        // *** ESTO ES CLAVE PARA ELIMINAR "token is not defined" ***
+        const token = localStorage.getItem('token'); // Recupera el token, si existe
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (token) { // Solo añade el header de autorización si hay un token
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_URL}/customer-orders`, { // Asegúrate de que API_URL sea correcto (http://localhost:3000/api)
+            method: 'POST',
+            headers: headers, // Usa los headers que construimos
+            body: JSON.stringify(orderData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Error ${response.status}: ${errorData.message || 'Error al enviar el pedido'}`);
+        }
+
+        const newOrder = await response.json();
+        showNotification(`Pedido #${newOrder.id} enviado con éxito!`);
+        cart = [];
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount(); // <-- CAMBIO AQUÍ
+        renderCart();      // <-- CAMBIO AQUÍ
+        closeModal();
+        closeCart();
+        console.log('Pedido enviado:', newOrder);
+        // console.log('Intentando cerrar modal...');
+        // Emitir evento de nuevo pedido si WebSocket está conectado
+        if (typeof socket !== 'undefined' && socket.connected) {
+            socket.emit('newOrder', { order: newOrder });
+        }
+    } catch (error) {
+        console.error('Error al enviar pedido:', error);
+        showNotification(`Error al enviar pedido: ${error.message}`, true);
+    }
+}
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('token');
+    showNotification('Sesión cerrada');
+    updateLoginButton();
+}
+
+function updateLoginButton() {
+    const loginButton = document.getElementById('loginButton');
+    const adminLink = document.getElementById('adminLink');
+    if (loginButton) {
+        if (currentUser) {
+            loginButton.textContent = `Logout (${currentUser.email})`;
+            adminLink?.classList.toggle('d-none', currentUser.role !== 'admin');
+        } else {
+            loginButton.textContent = 'Login';
+            adminLink?.classList.add('d-none');
+        }
+    }
+}
+
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadProducts();
+    updateCartCount();
+    renderCart();
+    updateLoginButton();
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark-mode');
+    }
+
+    const cartIconDesktop = document.getElementById('cartIconDesktop');
+    const cartIconMobile = document.getElementById('cartIconMobile');
+    const requestOrderBtn = document.getElementById('requestOrderBtn');
+    const clearCartBtn = document.getElementById('clearCartBtn');
+    const showOrderBtn = document.getElementById('showOrderBtn');
+    const sendOrderBtn = document.getElementById('sendOrderBtn');
+    const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+    const searchProducts = document.getElementById('searchProducts');
+    const resetSearchBtn = document.getElementById('resetSearchBtn');
+    const loginButton = document.getElementById('loginButton');
+    const showRegisterLink = document.getElementById('showRegisterLink');
+    const showLoginLink = document.getElementById('showLoginLink');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const confirmYes = document.getElementById('confirmYes');
+    const confirmCancel = document.getElementById('confirmCancel');
+    const continueShoppingBtn = document.getElementById('continueShoppingBtn');
+    const themeToggle = document.getElementById('themeToggle');
+
+    if (cartIconDesktop) cartIconDesktop.addEventListener('click', (e) => {
+        e.preventDefault();
+        openCart();
+    });
+    if (cartIconMobile) cartIconMobile.addEventListener('click', (e) => {
+        e.preventDefault();
+        openCart();
+    });
+    if (requestOrderBtn) requestOrderBtn.addEventListener('click', openRequestModal);
+    if (clearCartBtn) clearCartBtn.addEventListener('click', () => {
+        if (cart.length === 0) {
+            showNotification('El carrito ya está vacío');
+            return;
+        }
+        document.getElementById('confirmMessage').textContent = '¿Desea vaciar todo el carrito?';
+        const confirmModal = document.getElementById('confirmModal');
+        confirmModal?.classList.add('show');
+        const confirmYes = document.getElementById('confirmYes');
+        // Se asegura de que la función removeFromCart no se llame aquí directamente.
+        // En su lugar, el botón 'Sí' del modal de confirmación debe tener su propio listener.
+        confirmYes.onclick = () => {
+            // Este es el listener correcto para el botón "Sí" cuando se vacía el carrito completo
+            cart = [];
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+            renderCart();
+            closeModal();
+            showNotification('Carrito vaciado');
+        };
+    });
+    if (showOrderBtn) showOrderBtn.addEventListener('click', showOrder);
+    if (sendOrderBtn) sendOrderBtn.addEventListener('click', sendOrder);
+    if (cancelOrderBtn) cancelOrderBtn.addEventListener('click', closeModal);
+    if (searchProducts) {
+        const debouncedSearch = debounce((searchTerm) => {
+            loadProducts(searchTerm);
+        }, 300);
+        searchProducts.addEventListener('input', (e) => {
+            debouncedSearch(e.target.value);
+        });
+    }
+    if (resetSearchBtn) resetSearchBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        resetSearch();
+    });
+    if (loginButton) loginButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentUser) logout();
+        else showLoginModal();
+    });
+    if (showRegisterLink) showRegisterLink.addEventListener('click', showRegisterModal);
+    if (showLoginLink) showLoginLink.addEventListener('click', showLoginModal);
+    if (loginForm) loginForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail')?.value.toLowerCase();
+        const password = document.getElementById('loginPassword')?.value;
+        if (!email || !password) {
+            showNotification('Por favor, completa todos los campos');
+            return;
+        }
+        try {
+            const response = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            if (data.token) {
+                currentUser = {
+                    email: data.user.email,
+                    role: data.user.role,
+                    client_code: data.user.client_code
+                };
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                localStorage.setItem('token', data.token);
+                showNotification(`¡Bienvenido, ${email}!`);
+                updateLoginButton();
+                closeModal();
+            } else {
+                showNotification(data.error || 'Email o contraseña incorrectos');
+            }
+        } catch (error) {
+            console.error('Error al iniciar sesión:', error);
+            showNotification('Error al iniciar sesión. Intenta de nuevo.');
+        }
+    });
+    if (registerForm) registerForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = document.getElementById('registerName')?.value;
+        const email = document.getElementById('registerEmail')?.value.toLowerCase();
+        const password = document.getElementById('registerPassword')?.value;
+        const confirmPassword = document.getElementById('confirmPassword')?.value;
+        const role = document.getElementById('registerRole')?.value;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!name || name.length < 3) {
+            showNotification('El nombre debe tener al menos 3 caracteres', true);
+            return;
+        }
+        if (!emailRegex.test(email)) {
+            showNotification('Por favor, ingresa un email válido', true);
+            return;
+        }
+        if (password !== confirmPassword) {
+            showNotification('Las contraseñas no coinciden', true);
+            return;
+        }
+        try {
+            const response = await fetch(`${API_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, role })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al registrar');
+            }
+            currentUser = {
+                email: data.user.email,
+                role: data.user.role,
+                client_code: data.user.client_code,
+                name: data.user.name
+            };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            localStorage.setItem('token', data.token);
+            showNotification('Registro exitoso. ¡Bienvenido!', false);
+            updateLoginButton();
+            closeModal();
+        } catch (error) {
+            console.error('Error al registrar:', error);
+            showNotification(`Error: ${error.message}`, true);
+        }
+    });
+    // ¡IMPORTANTE! Asegúrate de que confirmYes solo llame a removeFromCart
+    // cuando se está confirmando la eliminación de un *solo* ítem.
+    // Para vaciar todo el carrito, el listener específico se maneja en el `clearCartBtn`.
+    if (confirmYes) confirmYes.addEventListener('click', removeFromCart); 
+    if (confirmCancel) confirmCancel.addEventListener('click', closeModal);
+    if (continueShoppingBtn) continueShoppingBtn.addEventListener('click', closeCart);
+    if (themeToggle) themeToggle.addEventListener('click', toggleDarkMode);
+
+    document.querySelectorAll('.contact-method-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.contact-method-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            updateContactInputs();
+        });
+    });
+    document.querySelectorAll('.close').forEach(closeBtn => {
+        closeBtn.addEventListener('click', () => {
+            if (closeBtn.closest('#cartSidebar')) closeCart();
+            else closeModal();
+        });
+    });
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    });
+});
+
+if (typeof io !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+        const socket = io('http://localhost:3000', {
+            auth: { token },
+            transports: ['websocket', 'polling'], // Priorizar WebSocket, con polling como respaldo
+            reconnectionAttempts: 3, // Reintentar 3 veces
+            reconnectionDelay: 1000 // Esperar 1 segundo entre reintentos
+        });
+        socket.on('connect', () => {
+            console.log('WebSocket conectado en buscador.js, socket ID:', socket.id);
+        });
+        socket.on('connect_error', (err) => {
+            console.error('Error de conexión WebSocket:', err.message);
+            showNotification('Error de conexión en tiempo real. Intenta recargar la página.', true);
+        });
+        socket.on('productUpdated', (data) => {
+            console.log('Producto actualizado:', data);
+            loadProducts();
+        });
+        socket.on('newOrder', (data) => {
+            console.log('Nuevo pedido recibido:', data);
+            showNotification(`Tu pedido #${data.order.id} ha sido creado con éxito!`);
+        });
+        socket.on('disconnect', () => {
+            console.log('WebSocket desconectado');
+        });
+    } else {
+        console.warn('No hay token, WebSocket no iniciado');
+        showNotification('Inicia sesión para habilitar actualizaciones en tiempo real.', true);
+    }
+}
+admin.js
+const API_URL = 'http://localhost:3000/api';
+let currentProductPage = 1;
+const productLimit = 10;
+let isSubmitting = false;
+let socket; // Declarado aquí, pero inicializado en verifyAdmin()
+
+// Alternar sidebar
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    if (sidebar && mainContent) {
+        sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('collapsed');
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed') ? 'true' : 'false');
+    }
+}
+
+// Aplicar estado de colapso al cargar
+function applySidebarState() {
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    if (sidebar && mainContent) {
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+            sidebar.classList.add('collapsed');
+            mainContent.classList.add('collapsed');
+        } else {
+            sidebar.classList.remove('collapsed');
+            mainContent.classList.remove('collapsed');
+        }
+    }
+}
+
+// Alternar modo oscuro
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('darkMode', document.body.classList.contains('dark-mode') ? 'true' : 'false');
+}
+
+// Aplicar modo oscuro al cargar
+function applyDarkMode() {
+    const darkMode = localStorage.getItem('darkMode');
+    if (darkMode === 'true') {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('darkMode', 'true');
+    } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', 'false');
+    }
+}
+
+async function verifyAdmin() {
+    console.log('Ejecutando verifyAdmin');
+    const token = localStorage.getItem('token');
+    console.log('Token inicial (verifyAdmin):', token);
+
+    if (!token) {
+        console.log('No token, no admin');
+        window.location.href = '../admin/login.html';
+        return false;
+    }
+    try {
+        const response = await fetch(`${API_URL}/auth/verify`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok || !data.valid || data.role !== 'admin') {
+            console.log('Verificación fallida o no admin:', data);
+            localStorage.removeItem('token');
+            localStorage.removeItem('currentUser');
+            window.location.href = '../admin/login.html';
+            return false;
+        }
+        console.log('Token verificado:', data);
+        const userName = document.getElementById('userName');
+        const userRole = document.getElementById('userRole');
+        if (userName) userName.textContent = data.name || 'Administrador';
+        if (userRole) userRole.textContent = data.role === 'admin' ? 'Super Admin' : 'Usuario';
+
+        // ##########################################################################
+        // INICIO DE LA LÓGICA DE SOCKET.IO - Integrada y Verificada
+        // ##########################################################################
+        if (!socket) { // Solo inicializar una vez
+            console.log('Inicializando Socket.IO...');
+            // La URL debe coincidir con la de tu servidor Node.js
+            socket = io('http://localhost:3000', {
+                auth: {
+                    token: token // Enviamos el token JWT en el handshake de la conexión
+                },
+                transports: ['websocket', 'polling'] // Preferir websocket, con fallback a polling
+            });
+
+            socket.on('connect', () => {
+                console.log('Conectado a WebSocket con ID:', socket.id);
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Error de conexión WebSocket:', error.message);
+                if (error.message.includes('Autenticación requerida') || error.message.includes('Token inválido')) {
+                    showNotification('Sesión expirada o token inválido para WebSocket. Por favor, inicia sesión.', true);
+                    console.warn('Necesitas iniciar sesión para usar el WebSocket o tu token ha expirado.');
+                    // Opcional: Podrías redirigir al login si el token es inválido aquí también
+                    // setTimeout(() => window.location.href = '../admin/login.html', 2000);
+                }
+            });
+
+            // Listener para el evento 'productUpdated' del servidor
+            socket.on('productUpdated', (data) => {
+                console.log('Evento productUpdated recibido vía WebSocket:', data);
+                showNotification(`Producto ${data.code} actualizado.`, false);
+                // Si estamos en la página de productos, recargamos la lista
+                if (window.location.pathname.includes('/admin/Productos.html')) {
+                    loadProducts(currentProductPage); // Recarga la página actual
+                }
+            });
+
+            // Listener para el evento 'newOrder' del servidor
+            socket.on('newOrder', (data) => {
+                console.log('Evento newOrder recibido vía WebSocket:', data);
+                showNotification(`¡Nuevo pedido! #${data.orderId} de ${data.userName}.`, false);
+                // Si estamos en el dashboard, recargamos las estadísticas
+                if (window.location.pathname.includes('/admin/index.html')) {
+                    loadStats();
+                }
+            });
+        }
+        // ##########################################################################
+        // FIN DE LA LÓGICA DE SOCKET.IO
+        // ##########################################################################
+
+        return true;
+    } catch (error) {
+        console.error('Error verificando admin (catch):', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('currentUser');
+        window.location.href = '../admin/login.html';
+        return false;
+    }
+}
+
+// --- FUNCIÓN showNotification (ya la tenías) ---
+function showNotification(message, isError = false) {
+    const notification = document.getElementById('notification');
+    if (notification) {
+        notification.textContent = message;
+        notification.classList.remove('show', 'success', 'error');
+        notification.classList.add('show', isError ? 'error' : 'success');
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    } else {
+        console.warn('Elemento #notification no encontrado');
+    }
+}
+
+// --- FUNCIÓN showConfirm (ya la tenías) ---
+function showConfirm(message, callback) {
+    // Si estás usando SweetAlert2 (recomendado para un diseño más profesional)
+    if (typeof Swal !== 'undefined') { // Verifica si SweetAlert2 está cargado
+        Swal.fire({
+            title: 'Confirmación',
+            text: message,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, confirmar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                callback(true); // El usuario confirmó
+            } else {
+                callback(false); // El usuario canceló
+            }
+        });
+    } else {
+        // Fallback al confirm nativo si SweetAlert2 no está disponible
+        const confirmed = window.confirm(message);
+        callback(confirmed);
+    }
+}
+// --- FIN FUNCIÓN showConfirm ---
+
+async function loadStats() {
+    try {
+        console.log('Cargando estadísticas...');
+        const token = localStorage.getItem('token');
+        console.log('Token en loadStats:', token);
+        if (!token) {
+            showNotification('No autenticado. Por favor, inicia sesión.', true);
+            setTimeout(() => window.location.href = '../admin/login.html', 2000);
+            return;
+        }
+        const response = await fetch(`${API_URL}/stats`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log('Respuesta /api/stats:', response.status, response.statusText);
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('currentUser');
+                showNotification('Sesión expirada. Por favor, inicia sesión nuevamente.', true);
+                setTimeout(() => window.location.href = '../admin/login.html', 2000);
+                return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const stats = await response.json();
+        console.log('Estadísticas recibidas:', stats);
+
+        const elements = {
+            totalProducts: document.getElementById('totalProducts'),
+            totalUsers: document.getElementById('totalUsers'),
+            totalOrders: document.getElementById('totalOrders'),
+            totalSales: document.getElementById('totalSales')
+        };
+
+        for (const [key, element] of Object.entries(elements)) {
+            if (!element) {
+                console.error(`Elemento ${key} no encontrado en el DOM`);
+                return;
+            }
+        }
+
+        elements.totalProducts.textContent = stats.totalProducts || '0';
+        elements.totalUsers.textContent = stats.totalUsers || '0';
+        elements.totalOrders.textContent = stats.totalOrders || '0';
+        elements.totalSales.textContent = `$${parseFloat(stats.totalSales || 0).toFixed(2)}`;
+
+        const salesChartCanvas = document.getElementById('salesChart')?.getContext('2d');
+        const productsChartCanvas = document.getElementById('productsChart')?.getContext('2d');
+
+        if (window.salesChart instanceof Chart) {
+            console.log('Destruyendo gráfico existente: salesChart');
+            window.salesChart.destroy();
+        }
+        if (window.productsChart instanceof Chart) {
+            console.log('Destruyendo gráfico existente: productsChart');
+            window.productsChart.destroy();
+        }
+
+        if (salesChartCanvas && typeof Chart !== 'undefined') {
+            console.log('Creando nuevo gráfico: salesChart');
+            window.salesChart = new Chart(salesChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: stats.salesData?.labels || ['Ene', 'Feb', 'Mar'],
+                    datasets: [{
+                        label: 'Ventas Mensuales',
+                        data: stats.salesData?.values || [0, 0, 0],
+                        borderColor: '#3a86ff',
+                        fill: false
+                    }]
+                }
+            });
+        } else {
+            console.warn('salesChartCanvas o Chart no disponible');
+        }
+        if (productsChartCanvas && typeof Chart !== 'undefined') {
+            console.log('Creando nuevo gráfico: productsChart');
+            window.productsChart = new Chart(productsChartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: stats.popularProducts?.labels || ['Producto 1', 'Producto 2'],
+                    datasets: [{
+                        label: 'Productos Populares',
+                        data: stats.popularProducts?.values || [0, 0],
+                        backgroundColor: '#3a86ff'
+                    }]
+                }
+            });
+        } else {
+            console.warn('productsChartCanvas o Chart no disponible');
+        }
+    } catch (error) {
+        console.error('Error al cargar estadísticas:', error);
+        showNotification('Error al cargar estadísticas', true);
+    }
+}
+
+function logout() {
+    console.log('Ejecutando logout');
+    localStorage.removeItem('token');
+    localStorage.removeItem('currentUser');
+    console.log('localStorage limpio:', localStorage.getItem('token'), localStorage.getItem('currentUser'));
+    window.location.href = '../admin/login.html';
+}
+
+function openModal() {
+    console.log('Ejecutando openModal');
+    const modalLabel = document.getElementById('productModalLabel');
+    const productForm = document.getElementById('productForm');
+    const imagePreview = document.getElementById('imagePreview');
+    const originalProductCode = document.getElementById('originalProductCode');
+    const productCodeInput = document.getElementById('productCode');
+
+    if (!modalLabel || !productForm || !imagePreview || !originalProductCode || !productCodeInput) {
+        console.error('Elementos necesarios no encontrados:', {
+            modalLabel: !!modalLabel,
+            productForm: !!productForm,
+            imagePreview: !!imagePreview,
+            originalProductCode: !!originalProductCode,
+            productCodeInput: !!productCodeInput
+        });
+        showNotification('Error: No se pudo abrir el formulario', true);
+        return;
+    }
+
+    // Configurar el modal para "Nuevo Producto"
+    modalLabel.textContent = 'Nuevo Producto';
+    productForm.reset(); // Limpiar el formulario
+    productForm.dataset.code = ''; // Importante: Limpiar el data-code para indicar que es nuevo
+    imagePreview.style.display = 'none';
+    imagePreview.src = '#';
+    originalProductCode.value = ''; // Asegurar que el campo originalProductCode esté vacío para nuevas creaciones
+    productCodeInput.disabled = false; // Habilitar el campo de código para un nuevo producto
+
+    // Eliminar el listener anterior y añadir uno nuevo para evitar múltiples eventos
+    productForm.removeEventListener('submit', window.saveProductHandler);
+    window.saveProductHandler = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isSubmitting) {
+            console.log('Envío bloqueado, ya en proceso');
+            return;
+        }
+        isSubmitting = true;
+        const submitButton = productForm.querySelector('button[type="submit"]');
+        console.log('Manejando submit del formulario');
+        if (submitButton) submitButton.disabled = true;
+        try {
+            await saveProduct(e);
+        } catch (error) {
+            console.error('Error en submit:', error);
+            showNotification(`Error: ${error.message}`, true);
+        } finally {
+            isSubmitting = false;
+            if (submitButton) submitButton.disabled = false;
+        }
+    };
+    productForm.addEventListener('submit', window.saveProductHandler, { once: false });
+
+    try {
+        console.log('Intentando abrir el modal con Bootstrap...');
+        const $modal = $('#productModal');
+        // Quitar listeners anteriores para evitar duplicidad o comportamientos inesperados
+        $modal.off('shown.bs.modal').off('hidden.bs.modal');
+        $modal
+            .on('shown.bs.modal', function () {
+                console.log('Modal completamente abierto');
+                loadProveedores();
+                productCodeInput.focus();
+            })
+            .on('hidden.bs.modal', function () {
+                console.log('Modal completamente cerrado');
+                // Limpiar el formulario y el data-code al cerrar el modal también,
+                // por si se cierra sin guardar
+                productForm.reset();
+                productForm.dataset.code = '';
+                imagePreview.style.display = 'none';
+                imagePreview.src = '#';
+                productCodeInput.disabled = false;
+            })
+            .modal('show');
+        console.log('Modal debería estar abriéndose...');
+    } catch (error) {
+        console.error('Error al abrir el modal con Bootstrap:', error.message, error.stack);
+        showNotification('Error al abrir el formulario: ' + error.message, true);
+    }
+}
+
+function closeModal() {
+    console.log('closeModal ejecutado');
+    $('#productModal').modal('hide');
+    const productForm = document.getElementById('productForm');
+    const productCode = document.getElementById('productCode');
+    const imagePreview = document.getElementById('imagePreview');
+    if (productForm) productForm.reset();
+    if (productCode) productCode.disabled = false;
+    if (productForm) productForm.dataset.code = '';
+    if (imagePreview) {
+        imagePreview.style.display = 'none';
+        imagePreview.src = '#';
+    }
+}
+
+async function loadProveedores() {
+    try {
+        const token = localStorage.getItem('token');
+        console.log('Cargando proveedores con token:', token);
+        const response = await fetch(`${API_URL}/proveedores`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log('Cargando proveedores, estado:', response.status);
+        if (!response.ok) {
+            throw new Error(`Error al cargar proveedores: ${response.status}`);
+        }
+        const proveedores = await response.json();
+        console.log('Proveedores recibidos:', proveedores);
+        const select = document.getElementById('proveedor_id');
+        if (!select) {
+            console.error('Elemento #proveedor_id no encontrado');
+            showNotification('Error: Campo de proveedores no encontrado', true);
+            return;
+        }
+        select.innerHTML = '<option value="">Selecciona un proveedor</option>';
+        if (proveedores.length > 0) {
+            proveedores.forEach(proveedor => {
+                const option = document.createElement('option');
+                option.value = DOMPurify.sanitize(proveedor.id);
+                option.textContent = DOMPurify.sanitize(proveedor.name);
+                select.appendChild(option);
+            });
+            console.log('Proveedores cargados, sin selección por defecto');
+            console.log('Contenido de #proveedor_id:', select.outerHTML);
+        } else {
+            console.log('No se encontraron proveedores');
+            select.innerHTML = '<option value="">No hay proveedores disponibles</option>';
+            showNotification('No hay proveedores disponibles', true);
+        }
+    } catch (error) {
+        console.error('Error cargando proveedores:', error.message);
+        showNotification('Error al cargar proveedores', true);
+    }
+}
+
+function previewImage() {
+    const input = document.getElementById('productImage');
+    const preview = document.getElementById('imagePreview');
+    if (!input || !preview) {
+        console.error('Elementos necesarios no encontrados:', {
+            input: !!input,
+            preview: !!preview
+        });
+        return;
+    }
+    preview.style.display = 'none';
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+async function loadProducts(page = 1, limit = productLimit, searchTerm = '') {
+    console.log('Ejecutando loadProducts:', { page, limit, searchTerm });
+    const token = localStorage.getItem('token');
+    if (!token) {
+        console.log('No token encontrado en loadProducts');
+        showNotification('No estás autenticado. Por favor, inicia sesión.', true);
+        setTimeout(() => window.location.href = '../admin/login.html', 1000);
+        return;
+    }
+    try {
+        const url = `${API_URL}/products?page=${page}&limit=${limit}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`;
+        console.log('Solicitando productos desde:', url);
+        const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log('Respuesta /api/products:', response.status, response.statusText);
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.log('Sesión expirada en loadProducts');
+                localStorage.removeItem('token');
+                localStorage.removeItem('currentUser');
+                showNotification('Sesión expirada. Por favor, inicia sesión nuevamente.', true);
+                setTimeout(() => window.location.href = '../admin/login.html', 2000);
+                return;
+            }
+            const errorData = await response.json();
+            console.error('Error en la respuesta de /api/products:', errorData);
+            throw new Error(errorData.error || 'Error al cargar productos');
+        }
+        const data = await response.json();
+        console.log('Datos recibidos de /api/products:', data);
+        const tableBody = document.getElementById('productsTableBody');
+        if (!tableBody) {
+            console.error('Elemento #productsTableBody no encontrado');
+            showNotification('Error: No se encontró la tabla de productos', true);
+            return;
+        }
+        if (!data.products || data.products.length === 0) {
+            console.log('No se encontraron productos');
+            tableBody.innerHTML = '<tr><td colspan="10">No se encontraron productos</td></tr>';
+            document.getElementById('prevProductPage').disabled = true;
+            document.getElementById('nextProductPage').disabled = true;
+            return;
+        }
+        tableBody.innerHTML = data.products.map(product => {
+            // Se asume que DOMPurify está cargado en la página HTML
+            const imgSrc = product.image_path && !product.image_path.includes('<id>')
+                ? `http://localhost:3000${DOMPurify.sanitize(product.image_path)}`
+                : '/images/default.png';
+            return `
+                <tr>
+                    <td><img src="${imgSrc}" alt="${DOMPurify.sanitize(product.description || product.code)}" width="50" style="object-fit: cover;" class="product-image" onerror="this.src='/images/default.png'"></td>
+                    <td>${DOMPurify.sanitize(product.code)}</td>
+                    <td>${DOMPurify.sanitize(product.description)}</td>
+                    <td>${DOMPurify.sanitize(product.brand || '-')}</td>
+                    <td>${DOMPurify.sanitize(product.model || '-')}</td>
+                    <td>$${parseFloat(product.usd || 0).toFixed(2)}</td>
+                    <td>$${parseFloat(product.ref || 0).toFixed(2)}</td>
+                    <td>${product.discount ? parseFloat(product.discount).toFixed(2) + '%' : '-'}</td>
+                    <td>${DOMPurify.sanitize(product.proveedor_name || '-')}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-edit" data-code="${DOMPurify.sanitize(product.code)}" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-delete" data-code="${DOMPurify.sanitize(product.code)}" title="Eliminar">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        const totalPages = data.totalPages || 1;
+        console.log('Paginación:', { currentPage: data.currentPage, totalPages });
+        document.getElementById('productPageInfo').textContent = `Página ${data.currentPage} de ${totalPages}`;
+        document.getElementById('prevProductPage').disabled = data.currentPage === 1;
+        document.getElementById('nextProductPage').disabled = data.currentPage >= totalPages;
+        currentProductPage = data.currentPage;
+        addProductButtonEvents(); // Asegura que los eventos se re-asignan después de recargar la tabla
+    } catch (error) {
+        console.error('Error al cargar productos:', error.message, error.stack);
+        showNotification(`Error al cargar productos: ${error.message}`, true);
+    }
+}
+
+async function loadRecentProducts() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showNotification('Sesión no iniciada. Por favor, inicia sesión.', true);
+            return;
+        }
+        const response = await fetch(`${API_URL}/products?page=1&limit=5&sort=created_at&order=desc`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                showNotification('Sesión expirada. Por favor, inicia sesión nuevamente.', true);
+                setTimeout(() => window.location.href = '../login.html', 2000);
+                return;
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const tableBody = document.getElementById('recentProductsTableBody');
+        if (!tableBody) {
+            console.warn('Elemento #recentProductsTableBody no encontrado');
+            return;
+        }
+        if (!data.products || data.products.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="6">No hay productos recientes</td></tr>';
+            return;
+        }
+        tableBody.innerHTML = data.products.map(product => {
+            // Se asume que DOMPurify está cargado en la página HTML
+            const imgSrc = product.image_path && !product.image_path.includes('<id>')
+                ? `http://localhost:3000${DOMPurify.sanitize(product.image_path)}`
+                : '/img/willcars-1.jpg';
+            return `
+                <tr>
+                    <td><img src="${imgSrc}" alt="${DOMPurify.sanitize(product.description || product.code)}" width="50" style="object-fit: cover;" onerror="this.src='/img/willcars-1.jpg'"></td>
+                    <td>${DOMPurify.sanitize(product.code)}</td>
+                    <td>${DOMPurify.sanitize(product.description)}</td>
+                    <td>${DOMPurify.sanitize(product.brand || '-')}</td>
+                    <td>$${parseFloat(product.usd || 0).toFixed(2)}</td>
+                    <td>${DOMPurify.sanitize(product.proveedor_name || '-')}</td>
+                </tr>
+            `;
+        }).join('');
+        console.log('Productos recientes cargados:', data.products.length);
+    } catch (error) {
+        console.error('Error al cargar productos recientes:', error);
+        showNotification('Error al cargar productos recientes', true);
+    }
+}
+
+async function editProduct(code) {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showNotification('Sesión expirada. Por favor, inicia sesión nuevamente.', true);
+            setTimeout(() => window.location.href = '../admin/login.html', 2000);
+            return;
+        }
+        const response = await fetch(`${API_URL}/products/${code}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al obtener producto');
+        }
+        const product = await response.json();
+        const modalLabel = document.getElementById('productModalLabel');
+        const productForm = document.getElementById('productForm');
+        const imagePreview = document.getElementById('imagePreview');
+        const productCodeInput = document.getElementById('productCode');
+        const originalProductCode = document.getElementById('originalProductCode'); // Asegurarse de tenerlo
+
+        if (!modalLabel || !productForm || !imagePreview || !productCodeInput || !originalProductCode) {
+            showNotification('Error: Elementos del formulario no encontrados', true);
+            return;
+        }
+        
+        // Configurar el modal para "Editar Producto"
+        modalLabel.textContent = 'Editar Producto';
+        productCodeInput.value = product.code;
+        productCodeInput.disabled = true; // Deshabilitar el código para edición
+        
+        // Asignar el código original al campo oculto para el PUT request
+        originalProductCode.value = product.code; 
+        productForm.dataset.code = product.code; // Establecer el data-code para indicar modo edición
+
+        document.getElementById('productCodeId').value = product.product_code_id || product.code;
+        document.getElementById('productDescription').value = product.description || '';
+        document.getElementById('productBrand').value = product.brand || '';
+        document.getElementById('productModel').value = product.model || '';
+        document.getElementById('productUsd').value = parseFloat(product.usd || 0).toFixed(2);
+        document.getElementById('productRef').value = parseFloat(product.ref || 0).toFixed(2);
+        document.getElementById('productDiscount').value = product.discount ? parseFloat(product.discount).toFixed(2) : '';
+        document.getElementById('proveedor_id').value = product.proveedor_id || '';
+        document.getElementById('productImage').value = ''; // Limpiar el campo de archivo por seguridad
+        
+        if (product.image_path && !product.image_path.includes('<id>')) {
+            imagePreview.src = `http://localhost:3000${DOMPurify.sanitize(product.image_path)}`;
+            imagePreview.style.display = 'block';
+        } else {
+            imagePreview.style.display = 'none';
+            imagePreview.src = '#';
+        }
+        
+        // Recargar proveedores y luego abrir el modal
+        await loadProveedores(); 
+        
+        // Añadir/Reemplazar el listener del formulario para la edición
+        productForm.removeEventListener('submit', window.saveProductHandler);
+        window.saveProductHandler = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (isSubmitting) {
+                console.log('Envío bloqueado, ya en proceso');
+                return;
+            }
+            isSubmitting = true;
+            const submitButton = productForm.querySelector('button[type="submit"]');
+            console.log('Manejando submit del formulario');
+            if (submitButton) submitButton.disabled = true;
+            try {
+                await saveProduct(e);
+            } catch (error) {
+                console.error('Error en submit:', error);
+                showNotification(`Error: ${error.message}`, true);
+            } finally {
+                isSubmitting = false;
+                if (submitButton) submitButton.disabled = false;
+            }
+        };
+        productForm.addEventListener('submit', window.saveProductHandler, { once: false });
+
+        $('#productModal').modal('show'); // Abrir el modal
+    } catch (error) {
+        console.error('Error en editProduct:', error);
+        showNotification(`No se pudo cargar el producto para editar: ${error.message}`, true);
+    }
+}
+
+async function saveProduct(e) {
+    e.preventDefault();
+    console.log('saveProduct ejecutado');
+
+    if (saveProduct.isSubmitting) {
+        console.log('Envío bloqueado, ya en proceso');
+        return;
+    }
+
+    saveProduct.isSubmitting = true;
+    const submitButton = document.querySelector('#productForm button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+
+    try {
+        const code = DOMPurify.sanitize(document.getElementById('productCode')?.value?.trim() || '');
+        const product_code_id = DOMPurify.sanitize(document.getElementById('productCodeId')?.value?.trim() || code);
+        // OriginalProductCode se usa para el PUT si el code ha sido deshabilitado en el formulario
+        const originalCodeForEdit = document.getElementById('originalProductCode')?.value?.trim(); 
+        const isEdit = document.getElementById('productForm')?.dataset.code; // Confirmar si es edición
+
+        console.log('Estado inicial:', { code, product_code_id, isEdit, originalCodeForEdit });
+
+        // Validaciones
+        if (!code) {
+            showNotification('El código es requerido', true);
+            throw new Error('Código no proporcionado');
+        }
+        if (code.length > 20) {
+            showNotification('El código debe tener máximo 20 caracteres', true);
+            throw new Error('Código demasiado largo');
+        }
+
+        const description = DOMPurify.sanitize(document.getElementById('productDescription')?.value?.trim() || '');
+        if (!description) {
+            showNotification('La descripción es requerida', true);
+            throw new Error('Descripción vacía');
+        }
+
+        const usd = parseFloat(document.getElementById('productUsd')?.value?.trim());
+        if (isNaN(usd) || usd <= 0) {
+            showNotification('El precio USD debe ser un número positivo', true);
+            throw new Error('USD inválido');
+        }
+
+        const ref = parseFloat(document.getElementById('productRef')?.value?.trim());
+        if (isNaN(ref) || ref <= 0) {
+            showNotification('El precio REF debe ser un número positivo', true);
+            throw new Error('REF inválido');
+        }
+
+        const discount = document.getElementById('productDiscount')?.value?.trim();
+        if (discount && (isNaN(parseFloat(discount)) || parseFloat(discount) < 0 || parseFloat(discount) > 100)) {
+            showNotification('El descuento debe ser un número entre 0 y 100', true);
+            throw new Error('Descuento inválido');
+        }
+
+        const proveedorId = DOMPurify.sanitize(document.getElementById('proveedor_id')?.value || '');
+        if (!proveedorId) {
+            showNotification('Por favor, selecciona un proveedor válido', true);
+            throw new Error('Proveedor no seleccionado');
+        }
+
+        const imageFile = document.getElementById('productImage')?.files[0];
+        if (imageFile) {
+            if (!['image/jpeg', 'image/png'].includes(imageFile.type)) {
+                showNotification('Solo se permiten imágenes JPG o PNG', true);
+                throw new Error('Tipo de imagen inválido');
+            }
+            if (imageFile.size > 2 * 1024 * 1024) {
+                showNotification('La imagen no debe superar los 2MB', true);
+                throw new Error('Imagen demasiado grande');
+            }
+        }
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showNotification('Sesión expirada. Por favor, inicia sesión nuevamente.', true);
+            setTimeout(() => window.location.href = '../admin/login.html', 2000);
+            throw new Error('Token no encontrado');
+        }
+
+        // Verificar si el código ya existe (solo para creación, no edición)
+        // En edición, el código es el mismo, así que no se hace esta comprobación
+        if (!isEdit) {
+            const response = await fetch(`http://localhost:3000/api/products/${code}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                showNotification('El código del producto ya existe', true);
+                throw new Error('Código ya existe');
+            } else if (response.status !== 404) {
+                showNotification('Error al verificar el código del producto', true);
+                throw new Error('Error al verificar código');
+            }
+        }
+
+        const formData = new FormData();
+        formData.append('code', code);
+        formData.append('description', description);
+        formData.append('brand', DOMPurify.sanitize(document.getElementById('productBrand')?.value?.trim() || ''));
+        formData.append('model', DOMPurify.sanitize(document.getElementById('productModel')?.value?.trim() || ''));
+        formData.append('usd', usd.toString());
+        formData.append('ref', ref.toString());
+        formData.append('discount', discount ? parseFloat(discount).toString() : '');
+        formData.append('proveedor_id', proveedorId);
+        formData.append('product_code_id', product_code_id);
+        if (imageFile) formData.append('image', imageFile);
+
+        // Si es edición, el ID para la URL es el originalCodeForEdit
+        const url = isEdit ? `http://localhost:3000/api/products/${originalCodeForEdit}` : 'http://localhost:3000/api/products';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        console.log('Enviando a:', url, 'Método:', method);
+
+        const response = await fetch(url, {
+            method,
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+        });
+
+        const result = await response.json();
+        console.log('Respuesta /api/products:', result);
+        if (!response.ok) {
+            throw new Error(result.error || (isEdit ? 'Error al actualizar producto' : 'Error al crear producto'));
+        }
+
+        showNotification(isEdit ? 'Producto actualizado correctamente' : 'Producto creado correctamente', false);
+        loadProducts(currentProductPage); // Recargar la página actual para ver los cambios
+        $('#productModal').modal('hide');
+        document.getElementById('productForm').reset();
+        document.getElementById('imagePreview').style.display = 'none';
+        document.getElementById('productCode').disabled = false; // Restablecer para la próxima vez
+        document.getElementById('productForm').dataset.code = ''; // Restablecer el estado
+        if (socket) socket.emit('productUpdated', { code, description });
+    } catch (error) {
+        console.error('Error en saveProduct:', error);
+        showNotification(`Error: ${error.message}`, true);
+    } finally {
+        saveProduct.isSubmitting = false;
+        if (submitButton) submitButton.disabled = false;
+    }
+}
+saveProduct.isSubmitting = false;
+
+async function deleteProduct(code) {
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmYes = document.getElementById('confirmYes');
+    const confirmNo = document.getElementById('confirmNo');
+    if (!confirmModal || !confirmMessage || !confirmYes || !confirmNo) {
+        showNotification('Error: Modal de confirmación no encontrado', true);
+        return;
+    }
+
+    showConfirm(`¿Estás seguro de eliminar el producto con código "${code}"? Esta acción es irreversible.`, async (confirmed) => {
+        if (confirmed) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showNotification('Sesión expirada. Por favor, inicia sesión nuevamente.', true);
+                setTimeout(() => window.location.href = '../admin/login.html', 2000);
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/products/${code}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al eliminar producto');
+                }
+                showNotification('Producto eliminado correctamente', false);
+                loadProducts(currentProductPage); // Recargar la página actual
+                // Emitir evento WebSocket
+                if (socket) socket.emit('productUpdated', { code, status: 'deleted' });
+            } catch (error) {
+                console.error('Error al eliminar producto:', error);
+                showNotification(`Error al eliminar producto: ${error.message}`, true);
+            }
+        } else {
+            showNotification('Eliminación cancelada', false);
+        }
+    });
+}
+
+// Función para añadir eventos a los botones de editar/eliminar (después de cargar la tabla)
+function addProductButtonEvents() {
+    document.querySelectorAll('.btn-edit').forEach(button => {
+        // Asegúrate de que el listener se agregue correctamente y no se duplique
+        button.onclick = null; // Elimina cualquier click handler anterior
+        button.onclick = () => editProduct(button.dataset.code);
+    });
+    document.querySelectorAll('.btn-delete').forEach(button => {
+        // Asegúrate de que el listener se agregue correctamente y no se duplique
+        button.onclick = null; // Elimina cualquier click handler anterior
+        button.onclick = () => deleteProduct(button.dataset.code);
+    });
+}
+
+
+// El evento DOMContentLoaded para iniciar toda la lógica del lado del cliente
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOMContentLoaded ejecutado, página:', window.location.pathname);
+    applySidebarState();
+    applyDarkMode();
+
+    // Importante: Verificar si el usuario es administrador antes de cargar cualquier contenido sensible
+    const isAdmin = await verifyAdmin();
+    console.log('Inicializando página...');
+
+    if (isAdmin) {
+        // Lógica para el dashboard (index.html)
+        if (window.location.pathname.includes('/admin/index.html') || window.location.pathname === '/admin/') {
+            loadStats();
+            loadRecentProducts();
+        }
+        // Lógica para la página de productos (Productos.html)
+        else if (window.location.pathname.includes('/admin/Productos.html')) {
+            loadProducts(1); // Carga la primera página de productos al iniciar
+
+            // Añadir event listeners específicos para la página de productos
+            // Asegúrate de que el ID 'newProductBtn' existe en tu HTML para el botón "Nuevo Producto"
+            document.getElementById('newProductBtn')?.addEventListener('click', openModal);
+            document.getElementById('productImage')?.addEventListener('change', previewImage);
+            document.getElementById('productSearchInput')?.addEventListener('input', (e) => loadProducts(1, productLimit, e.target.value));
+            document.getElementById('prevProductPage')?.addEventListener('click', () => loadProducts(currentProductPage - 1));
+            document.getElementById('nextProductPage')?.addEventListener('click', () => loadProducts(currentProductPage + 1));
+        }
+        // Lógica para la página de Usuarios (Usuarios.html)
+        // AUN PENDIENTE DE REVISION, pero se asegura que admin.js no cause el error de API_URL
+        else if (window.location.pathname.includes('/admin/Usuarios.html')) {
+            // Aquí iría la llamada a loadUsers() si existe en usuarios.js
+            // Por ahora, solo nos aseguramos que admin.js no duplique variables.
+            console.log('Página de Usuarios cargada.');
+        }
+        // ... (puedes añadir más lógica para otras páginas del admin aquí) ...
+
+        // Event listeners generales para todas las páginas del admin
+        document.getElementById('sidebarToggle')?.addEventListener('click', toggleSidebar);
+        document.getElementById('darkModeToggle')?.addEventListener('click', toggleDarkMode);
+        document.getElementById('logoutButton')?.addEventListener('click', logout);
+    }
+});
+aoo.js const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+const helmet = require('helmet');
+const { Server } = require('socket.io');
+const http = require('http');
+const path = require('path');
+const jwt = require('jsonwebtoken'); // Importa jsonwebtoken aquí
+
+// Asegúrate de que .env se cargue al inicio
+require('dotenv').config();
+console.log('JWT_SECRET cargado en el servidor:', process.env.JWT_SECRET); // ¡Añade esta línea!
+// Tus módulos locales
+const authRoutes = require('./routes/auth').router; // Asegúrate de exportar como .router si es así
+const userRoutes = require('./routes/users');
+const productsRoutes = require('./routes/products');
+const ordersRoutes = require('./routes/orders'); // Se le pasará 'io'
+const statsRoutes = require('./routes/stats');
+const salesRoutes = require('./routes/sales');
+const providerRoutes = require('./routes/proveedores');
+const newsletterRoutes = require('./routes/newsletter');
+const configRoutes = require('./routes/config');
+const { initializeDatabase } = require('./db'); // O el pool directamente
+const logger = require('./logger');
+
+const app = express();
+const server = http.createServer(app);
+
+// --- CORRECCIÓN 1: Configuración de Orígenes Permitidos (CORS más amplio) ---
+// Define la lista completa de orígenes permitidos para el desarrollo y producción
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:5817', // Añade los puertos que uses en el frontend
+    'http://127.0.0.1:5817',
+    process.env.FRONTEND_URL // Para tu entorno de producción
+].filter(Boolean); // Filtra cualquier valor 'undefined' si FRONTEND_URL no está establecido
+
+// Configuración de Socket.IO con CORS para todos los orígenes permitidos
+const io = new Server(server, {
+    cors: {
+        origin: allowedOrigins, // Usa la lista completa
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        credentials: true,
+        allowedHeaders: ['Content-Type', 'Authorization'] // Importante para el token
+    }
+});
+logger.info('Socket.IO inicializado, cliente disponible en /socket.io/socket.io.js');
+
+// --- MIDDLEWARES GLOBALES ---
+// CORS para Express (peticiones HTTP)
+app.use(cors({
+    origin: allowedOrigins, // Usa la lista completa también para Express
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Añade 'OPTIONS' para preflight requests
+    allowedHeaders: ['Content-Type', 'Authorization'], // Importante para el token
+    credentials: true
+}));
+app.use(express.json()); // Para parsear cuerpos de solicitud JSON
+app.use(express.urlencoded({ extended: true })); // Para parsear cuerpos de solicitud URL-encoded
+app.use(morgan('combined', { stream: logger.stream })); // Logging de peticiones HTTP
+
+// --- CORRECCIÓN 2: Configuración de Helmet y Content Security Policy (CSP) ---
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: [
+                "'self'",
+                'https://code.jquery.com',
+                'https://cdn.jsdelivr.net',
+                'https://cdnjs.cloudflare.com',
+                'https://stackpath.bootstrapcdn.com',
+                'https://cdn.socket.io',
+                'https://ajax.googleapis.com',
+                "'unsafe-inline'" // Ten cuidado con esto en producción, pero es útil para desarrollo
+            ],
+            scriptSrcAttr: ["'unsafe-inline'"], // Para atributos de eventos inline (ej. onclick)
+            styleSrc: [
+                "'self'",
+                'https://cdn.jsdelivr.net',
+                'https://cdnjs.cloudflare.com',
+                'https://stackpath.bootstrapcdn.com',
+                'https://fonts.googleapis.com',
+                "'unsafe-inline'"
+            ],
+            fontSrc: [
+                "'self'",
+                'https://cdnjs.cloudflare.com',
+                'https://fonts.gstatic.com'
+            ],
+            imgSrc: [
+                "'self'",
+                'http://localhost:3000', // Tu propio origen
+                'http://localhost:8080',
+                'http://localhost:5817',
+                'data:', // Para imágenes base64 (si las usas)
+                
+                // http://localhost:3000/Uploads/, ya está cubierto por 'http://localhost:3000'
+            ],
+            connectSrc: [
+                "'self'",
+                'http://localhost:3000',
+                'ws://localhost:3000', // Para WebSockets
+                'wss://localhost:3000', // Para WebSockets (HTTPS)
+                'http://localhost:8080', 'ws://localhost:8080',
+                'http://localhost:5817', 'ws://localhost:5817'
+            ],
+            formAction: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'none'"],
+            frameSrc: ["'none'"]
+        }
+    }
+}));
+
+
+// --- CORRECCIÓN 3: Servir Archivos Estáticos desde la carpeta 'frontend' ---
+// La ruta correcta para acceder a tu carpeta frontend desde el backend
+logger.info('Configurando ruta estática para frontend:', path.join(__dirname, '../frontend'));
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Si tienes subcarpetas específicas dentro de 'frontend' que quieres exponer con rutas cortas
+// o configuraciones CORS diferentes, puedes añadirlas:
+// app.use('/css', express.static(path.join(__dirname, '../frontend/css')));
+// app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
+// app.use('/images', express.static(path.join(__dirname, '../frontend/images')));
+
+// Servir la carpeta de 'Uploads' que está en el mismo nivel que 'routes'
+logger.info('Configurando ruta estática para Uploads:', path.join(__dirname, '../Uploads'));
+app.use('/Uploads', cors({
+    origin: allowedOrigins,
+    methods: ['GET'],
+    allowedHeaders: ['Content-Type']
+}), express.static(path.join(__dirname, '../Uploads'))); // Asegúrate que esta ruta es correcta para tu carpeta Uploads
+
+
+// --- RUTAS API ---
+logger.info('Registrando rutas API');
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/customer-orders', ordersRoutes(io));// Pasa la instancia 'io' a ordersRoutes
+app.use('/api/stats', statsRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/proveedores', providerRoutes);
+app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/config', configRoutes);
+
+
+// --- CORRECCIÓN 4: Middleware de Autenticación de Socket.IO (Reintroducido) ---
+// --- CORRECCIÓN 4: Middleware de Autenticación de Socket.IO (TEMPORALMENTE DESACTIVADO PARA DEPURACIÓN) ---
+io.use((socket, next) => {
+    // Estas dos líneas de abajo anulan toda la lógica de autenticación.
+    // ¡Las usaremos para verificar si el 400 Bad Request viene de aquí!
+    next(); // Permite la conexión del WebSocket sin importar el token.
+    return; // Detiene la ejecución de este middleware aquí.
+
+    // ********************************************************************************
+    // TODO EL CÓDIGO DE VALIDACIÓN DE TOKEN DEBE ESTAR COMENTADO O REMOVIDO TEMPORALMENTE
+    // (o el 'next(); return;' debe estar al principio del bloque)
+    // ********************************************************************************
+
+    // const token = socket.handshake.auth.token;
+    // logger.info(`Intentando autenticar WebSocket con token: ${token ? 'presente' : 'no proporcionado'}`);
+    // if (!token) {
+    //     logger.error('No se proporcionó token para WebSocket');
+    //     return next(new Error('Autenticación requerida'));
+    // }
+    // try {
+    //     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    //     socket.user = decoded;
+    //     logger.info(`Token válido para WebSocket, id: ${decoded.id}, email: ${decoded.email}`);
+    //     // next(); // Ya lo tenemos al principio del bloque
+    // } catch (error) {
+    //     logger.error(`Error verificando token WebSocket: ${error.message}`);
+    //     return next(new Error('Token inválido o expirado. Por favor, vuelva a iniciar sesión.'));
+    // }
+});
+
+// --- MANEJO DE EVENTOS SOCKET.IO ---
+io.on('connection', (socket) => {
+    logger.info(`Cliente conectado: ${socket.id}, usuario: ${socket.user?.email || 'desconocido'}`);
+
+    socket.on('disconnect', () => {
+        logger.info(`Cliente desconectado: ${socket.id}, usuario: ${socket.user?.email || 'desconocido'}`);
+    });
+
+    // Escucha eventos de productos y los emite a todos los clientes conectados
+    socket.on('productUpdated', (data) => {
+        logger.info(`Evento 'productUpdated' recibido desde ${socket.user?.email || 'desconocido'}. Emitiendo a todos.`);
+        io.emit('productUpdated', data);
+    });
+    socket.on('productDeleted', (data) => { // Asegúrate de tener este evento en el frontend si lo usas
+        logger.info(`Evento 'productDeleted' recibido desde ${socket.user?.email || 'desconocido'}. Emitiendo a todos.`);
+        io.emit('productDeleted', data);
+    });
+
+    // Lógica para pedidos en tiempo real
+    socket.on('newOrder', (order) => {
+        logger.info(`Nuevo pedido recibido vía Socket desde ${socket.user?.email || 'desconocido'}. ID: ${order.id}`);
+        io.emit('newOrder', { order }); // Reenvía el pedido a todos los clientes
+    });
+});
+
+app.set('io', io); // Permite que otros módulos accedan a la instancia de Socket.IO
+
+
+// --- MANEJO DE ERRORES Y RUTAS NO ENCONTRADAS ---
+// Manejo de rutas no encontradas (404)
+app.use((req, res, next) => {
+    logger.warn(`Ruta no encontrada: ${req.originalUrl}`);
+    res.status(404).json({ error: 'Ruta no encontrada' });
+});
+
+// Middleware para manejar errores no capturados
+app.use((err, req, res, next) => {
+    logger.error(`Error no manejado: ${err.message}, stack: ${err.stack}`);
+    // No uses console.log para errores en producción, usa solo logger
+    // console.log(`Error no manejado: ${err.message}, stack: ${err.stack}`);
+    res.status(err.status || 500).json({ error: 'Error interno del servidor', message: err.message });
+});
+
+
+// --- INICIO DEL SERVIDOR ---
+const PORT = process.env.PORT || 3000;
+initializeDatabase().then(() => {
+    server.listen(PORT, () => {
+        logger.info(`Servidor corriendo en http://localhost:${PORT}`);
+    });
+}).catch((err) => {
+    logger.error('Error al inicializar la base de datos:', err);
+    process.exit(1);
+});
+dime sin son estos tengo otros

@@ -1,0 +1,21 @@
+.env
+node_modules/
+*.sql
+WillCars VS.code-workspace
+willcars datos.txt
+pedidos willcars.txt
+carga csv.txt
+Datos Actuales/
+Datos Byet internet service.txt
+formato pedido.txt
+yo.txt
+gemini.txt
+lib/fontawesome/
+utilidades/fontawesome1/
+utilidades/Base de Datos willcars Postgrasql.txt
+utilidades/Datos para inicio Grock.txt
+utilidades/Grok pro.txt
+utilidades/scripts batch servidores.txt
+utilidades/twilio_2FA_recovery_code.txt
+utilidades/BD/
+online-shop-website-template.jpg

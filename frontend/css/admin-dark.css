@@ -1,0 +1,38 @@
+/* admin-dark.css */
+:root {
+    /* Modo oscuro */
+    --body-bg: #121212;
+    --text-color: #e0e0e0;
+    --card-bg: #1f1f1f;
+}
+
+.dark-mode {
+    background-color: var(--body-bg);
+    color: var(--text-color);
+}
+
+.dark-mode .sidebar {
+    background: linear-gradient(135deg, #0d0d1a, #16213e);
+    color: var(--text-color);
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+}
+
+.dark-mode .search-bar i,
+.dark-mode .notifications i {
+    color: var(--light);
+}
+
+.dark-mode .products-table,
+.dark-mode .users-table {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+.dark-mode .users-table thead {
+    background-color: var(--primary-dark);
+    color: var(--light);
+}
+
+.dark-mode .users-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}

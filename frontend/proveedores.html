@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Portal de Proveedores</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="repuestos automotrices, Maquinarias, WillCars, proveedores, autopartes" name="keywords">
+    <meta content="Portal para proveedores de WillCars. Accede a inventario y precios especiales." name="description">
+    <link rel="icon" href="/img/favicon.ico">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">  
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/lib/fontawesome/css/all.min.css" rel="stylesheet">
+    <link href="/lib/animate/animate.min.css" rel="stylesheet">
+    <link href="/lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        .text-decoration-none span {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+        .custom-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            background-color: #28a745;
+            color: white;
+            border-radius: 5px;
+            z-index: 1100;
+        }
+        .custom-alert.error {
+            background-color: #dc3545;
+        }
+        .modal {
+            z-index: 1050;
+        }
+        .modal-backdrop {
+            z-index: 1040;
+        }
+        .loading-spinner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 86, 179, 0.9);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            z-index: 1200;
+            display: none;
+            font-size: 1.4em;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease-in;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .loading-spinner.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        #logoutLink {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            color: #f4a261 !important;
+            transition: color 0.3s;
+        }
+        #logoutLink:hover {
+            color: #ffffff !important;
+        }
+        .search-container:focus-within {
+            border-color: #f4a261;
+            box-shadow: 0 0 20px #f4a261;
+        }
+        #noLoginLogo img {
+            transition: transform 0.3s ease;
+        }
+        #noLoginLogo img:hover {
+            transform: scale(1.05);
+        }
+        .dropzone, .preview-box {
+            border: 2px dashed #f4a261;
+            background-color: #f8f9fa;
+            position: relative;
+            overflow: hidden;
+            height: 350px;
+        }
+        .dropzone-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.1;
+            z-index: 0;
+        }
+        .dropzone .card-body, .preview-box .card-body {
+            position: relative;
+            z-index: 1;
+        }
+        .dropzone.dragover {
+            background-color: #e9ecef;
+            border-color: #0056b3;
+        }
+        .dropzone p, .preview-box p {
+            font-size: 1.2rem;
+            color: #343a40;
+        }
+        .dropzone .small, .preview-box .small {
+            font-size: 0.9rem;
+        }
+        #dropzoneNotes {
+            resize: vertical;
+            min-height: 60px;
+            pointer-events: auto !important;
+            user-select: auto !important;
+            z-index: 10 !important;
+        }
+        #dropzoneForm, #dropzoneSubmit, #dropzoneFile, #dropzoneNotes {
+            pointer-events: auto !important;
+            z-index: 10 !important;
+        }
+        .preview-box table {
+            max-height: 250px;
+            overflow-y: auto;
+            display: block;
+        }
+        .notification-badge {
+            position: relative;
+            top: -10px;
+            right: -10px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+        }
+         /* Estilos para la barra de navegación */
+.navbar.navbar-expand-lg {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.navbar-collapse {
+    display: flex;
+    justify-content: space-between; /* Separa Home/Productos/Contacto de Listas/Notificaciones/Cerrar */
+    width: 100%;
+    flex-wrap: nowrap; /* Evita que los elementos se envuelvan */
+    align-items: center; /* Centra verticalmente los grupos */
+}
+
+.navbar-nav.mr-auto {
+    display: flex;
+    flex-direction: row; /* Alinea Home, Productos, Contacto horizontalmente */
+    align-items: center;
+    gap: 15px; /* Espacio entre elementos */
+}
+
+.navbar-nav.ml-auto {
+    display: flex;
+    flex-direction: row !important; /* Sobrescribe flex-direction: column de Bootstrap */
+    align-items: center; /* Centra íconos y texto verticalmente dentro de cada nav-link */
+    gap: 20px; /* Espacio entre Listas Enviadas, Notificaciones, Cerrar Sesión */
+}
+
+.navbar-nav .nav-item.nav-link {
+    display: flex;
+    align-items: center; /* Centra íconos y texto verticalmente dentro del nav-link */
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    color: #f4a261 !important; /* Color consistente */
+    text-decoration: none;
+}
+
+/* Sobrescribir estilos de Bootstrap para .nav-link */
+.navbar-dark .navbar-nav .nav-link {
+    color: #f4a261 !important; /* Asegura el color deseado */
+    padding: 8px 12px; /* Consistencia con el padding */
+}
+
+/* Eliminar efecto de hover */
+.navbar-nav .nav-item.nav-link:hover,
+.navbar-dark .navbar-nav .nav-link:hover {
+    color: #f4a261 !important; /* Sin cambio de color */
+    background-color: transparent; /* Sin fondo */
+}
+
+.notification-badge {
+    position: relative;
+    top: -8px;
+    right: -8px;
+    background-color: #dc3545; /* Rojo */
+    color: white;
+    border-radius: 50%;
+    padding: 3px 8px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+#authLink {
+    font-size: 0.9rem;
+    color: #f4a261 !important;
+}
+
+#authLink:hover {
+    color: #f4a261 !important; /* Sin cambio de color */
+    background-color: transparent; /* Sin fondo */
+}
+
+/* Eliminar estilos conflictivos de #logoutLink */
+#logoutLink {
+    display: none; /* Oculta este selector, ya que no se usa */
+}
+
+/* Ajuste para pantallas pequeñas */
+@media (max-width: 991px) {
+    .navbar-collapse {
+        flex-direction: column; /* Colapsa verticalmente */
+        align-items: flex-start;
+    }
+    .navbar-nav.mr-auto,
+    .navbar-nav.ml-auto {
+        flex-direction: column !important; /* Elementos en columna */
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+    }
+    .navbar-nav .nav-item.nav-link,
+    .navbar-dark .navbar-nav .nav-link {
+        padding: 10px 15px;
+        color: #f4a261 !important;
+    }
+}
+    </style>
+</head>
+<body>
+    <!-- Topbar Start -->
+    <div class="container-fluid">
+        <div class="row align-items-center bg-light py-3 px-xl-5 d-none d-lg-flex">
+            <div class="col-lg-4">
+                <a href="/index.html" class="text-decoration-none">
+                    <span class="h1 text-uppercase text-primary bg-dark px-2">Link</span>
+                    <span class="h1 text-uppercase text-dark bg-primary px-2 ml-n1">Parts</span>
+                    <img src="/img/willcars-1.jpg" alt="Logo" class="logo-img ml-2" style="height: 70px; width: auto;">
+                </a>
+            </div>
+            <div class="col-lg-4 col-6 text-left">
+                <form action="" class="search-container">
+                    <div class="input-group">
+                        <input type="text" id="searchInput" class="form-control" placeholder="Buscar productos">
+                        <div class="input-group-append">
+                            <span class="input-group-text bg-transparent text-primary">
+                                <i class="fa fa-search"></i>
+                            </span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="col-lg-4 col-6 text-right">
+                <p class="m-0">Horario: Lunes a Sábado</p>
+                <h5 class="m-0">8:00 AM - 5:00 PM</h5>
+            </div>
+        </div>
+    </div>
+    <!-- Topbar End -->
+
+    <!-- Navbar Start -->
+<div class="row px-xl-5">
+    <div class="col-lg-3 d-none d-lg-block">
+        <a class="btn d-flex align-items-center justify-content-between bg-primary w-100" data-bs-toggle="collapse" href="#navbar-vertical" style="height: 65px; padding: 0 30px;">
+            <h6 class="text-dark m-0"><i class="fa fa-bars mr-2"></i>Lista Productos</h6>
+            <i class="fa fa-angle-down text-dark"></i>
+        </a>
+        <nav class="collapse position-absolute navbar navbar-vertical navbar-light align-items-start p-0 bg-light" id="navbar-vertical" style="width: calc(100% - 30px); z-index: 999;">
+            <div class="navbar-nav w-100">
+                <div class="nav-item dropdown dropright">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Google Drive Lista <i class="fa fa-angle-right float-right mt-1"></i></a>
+                    <div class="dropdown-menu position-absolute rounded-0 border-0 m-0">
+                        <a href="" class="dropdown-item">Toyota</a>
+                        <a href="" class="dropdown-item">Multi Marca</a>
+                        <a href="" class="dropdown-item">Pastillas Frenos</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </div>
+    <div class="col-lg-9">
+        <nav class="navbar navbar-expand-lg bg-dark navbar-dark py-3 py-lg-0 px-0">
+            <a href="/index.html" class="text-decoration-none d-block d-lg-none">
+                <span class="h1 text-uppercase text-dark bg-light px-2">Will</span>
+                <span class="h1 text-uppercase text-light bg-primary px-2 ml-n1">Cars</span>
+            </a>
+            <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-between" id="navbarCollapse">
+                <div class="navbar-nav mr-auto py-0">
+                    <a href="/index.html" class="nav-item nav-link">Home</a>
+                    <a href="/productos.html" class="nav-item nav-link">Productos</a>
+                    <a href="/contact.html" class="nav-item nav-link">Contacto</a>
+                </div>
+                <div class="navbar-nav ml-auto py-0 d-none d-lg-block">
+                    <a href="#" id="uploadedFilesLink" class="nav-item nav-link"><i class="fas fa-check-circle me-1"></i>Listas Enviadas</a>
+                    <a href="#" id="notificationsLink" class="nav-item nav-link"><i class="fas fa-bell me-1"></i>Notificaciones <span id="notificationBadge" class="notification-badge" style="display: none;">0</span></a>
+                    <a href="#" id="authLink" class="nav-item nav-link">Cerrar Sesión (willmetacars@gmail.com)</a>
+                </div>
+            </div>
+        </nav>
+    </div>
+</div>
+<!-- Navbar End -->
+
+    <!-- Main Content Start -->
+    <div class="container-fluid">
+        <div id="loadingSpinner" class="loading-spinner">
+            <i class="fas fa-circle-notch fa-spin"></i> Subiendo archivo...
+        </div>
+        <div class="row px-xl-5">
+            <!-- Login Modal -->
+            <div id="loginModal" class="modal fade" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <img src="/img/willcars-1.jpg" alt="Logo" class="logo-img" style="height: 100px; width: auto; cursor: pointer;" id="logoLoginTrigger">
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="loginForm">
+                                <div class="form-group mb-3">
+                                    <label for="loginEmail">Email</label>
+                                    <input type="email" id="loginEmail" class="form-control" placeholder="Email" required>
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="loginPassword">Contraseña</label>
+                                    <input type="password" id="loginPassword" class="form-control" placeholder="Contraseña" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">Iniciar Sesión</button>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <p class="text-center"><a href="#" id="showRegisterLinkModal">¿No tienes cuenta? Regístrate</a></p>
+                            <p class="text-center"><a href="#" id="forgotPasswordLink">¿Olvidó su contraseña?</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Register Modal -->
+            <div id="registerModal" class="modal fade" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="registerModalLabel">Registro de Proveedor</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="registerForm">
+                                <div class="form-group mb-3">
+                                    <label for="registerName">Nombre</label>
+                                    <input type="text" id="registerName" class="form-control" placeholder="Nombre" required minlength="3" maxlength="50">
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="registerEmail">Email</label>
+                                    <input type="email" id="registerEmail" class="form-control" placeholder="Email" required>
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="registerPassword">Contraseña</label>
+                                    <input type="password" id="registerPassword" class="form-control" placeholder="Contraseña" required minlength="6" maxlength="50">
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="confirmPassword">Confirmar Contraseña</label>
+                                    <input type="password" id="confirmPassword" class="form-control" placeholder="Confirmar Contraseña" required minlength="6" maxlength="50">
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label for="proveedorName">Nombre del Proveedor</label>
+                                    <input type="text" id="proveedorName" class="form-control" placeholder="Ej: AutoPartes XYZ" required minlength="3" maxlength="50">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">Registrarse</button>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <p class="text-center"><a href="#" id="showLoginLink">¿Ya tienes cuenta? Inicia sesión</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forgot Password Modal -->
+            <div id="forgotPasswordModal" class="modal fade" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="forgotPasswordModalLabel">Recuperar Contraseña</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="forgotPasswordForm">
+                                <div class="form-group mb-3">
+                                    <label for="forgotPasswordEmail">Email</label>
+                                    <input type="email" id="forgotPasswordEmail" class="form-control" placeholder="Email" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">Enviar enlace de recuperación</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Listas Enviadas Modal -->
+<div id="uploadedFilesModal" class="modal fade" tabindex="-1" aria-labelledby="uploadedFilesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadedFilesModalLabel">Listas Enviadas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Archivo</th>
+                            <th>Fecha de Subida</th>
+                            <th>Estado</th>
+                            <th>Notas del Administrador</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="uploadedFilesTableBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+            <!-- Notificaciones Modal -->
+            <div id="notificationsModal" class="modal fade" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="notificationsModalLabel">Notificaciones</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="notificationsList" class="list-group"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload and Preview Section -->
+            <div class="col-lg-12 col-md-12">
+                <h2 class="section-title position-relative text-uppercase mb-4"><span class="bg-secondary pr-3">Carga de Productos</span></h2>
+                <div class="row">
+                    <!-- Dropzone -->
+                    <div class="col-lg-6 col-md-6">
+                        <div class="card mb-4 dropzone" id="dropzone">
+                             <img src="/img/willcars-1.jpg" alt="Drive Background" class="dropzone-bg">
+                            <div class="card-body text-center d-flex flex-column align-items-center justify-content-center">
+                                <!-- <img src="/img/willcars-1.jpg" alt="Logo" class="logo-img" style="height: 100px; width: auto; cursor: pointer;" id="logoLoginTrigger"> -->
+                                <h5 class="card-title">Carga Masiva de Productos</h5>
+                                <p class="card-text">Arrastra y suelta tu archivo Excel o CSV aquí</p>
+                                <form id="dropzoneForm" enctype="multipart/form-data">
+                                    <input type="file" id="dropzoneFile" name="file" class="d-none" accept=".csv,.xlsx">
+                                    <button type="button" class="btn btn-outline-primary mt-2" id="chooseFileBtn">Seleccionar Archivo</button>
+                                    <div class="form-group mt-3 w-100">
+                                        <label for="dropzoneNotes" class="d-block mb-2">Notas:</label>
+                                        <textarea class="form-control" id="dropzoneNotes" name="notes" rows="3" placeholder="Notas:"></textarea>
+                                    </div>
+                                    <button type="submit" id="dropzoneSubmit" class="btn btn-primary mt-3">Subir Archivo</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Preview Box -->
+<div class="col-lg-6 col-md-6">
+    <div class="card mb-4 preview-box">
+        <div class="card-body text-center">
+            <h5 class="card-title">Previsualización de Productos</h5>
+            <p class="card-text" id="previewText">Selecciona un archivo para previsualizar</p>
+            <div id="previewTableContainer" style="display: none;">
+                <ul class="nav nav-tabs mb-3" id="fileTabs"></ul>
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Marca</th>
+                            <th>Modelo</th>
+                            <th>Precio USD</th>
+                            <th>Referencia</th>
+                            <th>Imagen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewTableBody"></tbody>
+                </table>
+                <nav aria-label="Paginación de previsualización">
+                    <ul class="pagination justify-content-center mt-3">
+                        <li class="page-item"><a class="page-link" href="#" id="prevPreviewPage">Anterior</a></li>
+                        <li class="page-item"><a class="page-link" href="#" id="nextPreviewPage">Siguiente</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+            <!-- Inventory -->
+            <div class="col-lg-12 col-md-12">
+                <h2 class="section-title position-relative text-uppercase mb-4"><span class="bg-secondary pr-3">Inventario</span></h2>
+                <div class="row" id="inventory"></div>
+                <div class="col-12 text-center" id="noLoginLogo" style="display: none;">
+                  <!--  <img src="/img/willcars-1.jpg" alt="Logo" class="img-fluid" style="max-width: 200px;"> -->
+                </div>
+                <div class="col-12 text-center" id="paginationControls" style="display: none;">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item"><a class="page-link" href="#" id="prevPage">Anterior</a></li>
+                            <li class="page-item disabled"><span class="page-link" id="pageInfo"></span></li>
+                            <li class="page-item"><a class="page-link" href="#" id="nextPage">Siguiente</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Main Content End -->
+
+    <!-- Footer Start -->
+<div class="container-fluid bg-dark text-secondary mt-3 pt-3">
+    <div class="row px-xl-5 pt-3">
+        <div class="col-lg-4 col-md-12 mb-5 pr-3 pr-xl-5">
+            <h5 class="text-secondary text-uppercase mb-4">Contáctanos</h5>
+            <p class="mb-4">Encuentra los mejores repuestos automotrices en WillCars.</p>
+            <p class="mb-2"><i class="fa fa-map-marker-alt text-primary mr-3"></i>123 Street, New York, USA</p>
+            <p class="mb-2"><i class="fa fa-envelope text-primary mr-3"></i>willmetacars@gmail.com</p>
+            <p class="mb-0"><i class="fa fa-phone-alt text-primary mr-3"></i>+012 345 67890</p>
+            <p class="mb-md-0 text-center text-md-left text-secondary">
+                © <a class="text-primary" href="#">WillCars</a>. Todos los derechos reservados.
+            </p>
+        </div>
+        <div class="col-lg-8 col-md-12">
+            <div class="row">
+                <div class="col-md-4 mb-5">
+                    <h5 class="text-secondary text-uppercase mb-4">Tienda</h5>
+                    <div class="d-flex flex-column justify-content-start">
+                        <a class="text-secondary mb-2" href="/index.html"><i class="fa fa-angle-right mr-2"></i>Home</a>
+                        <a class="text-secondary mb-2" href="/buscador.html"><i class="fa fa-angle-right mr-2"></i>Buscar Producto</a>
+                        <a class="text-secondary" href="/contact.html"><i class="fa fa-angle-right mr-2"></i>Contáctanos</a>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-5">
+                    <h5 class="text-secondary text-uppercase mb-4">Newsletter</h5>
+                    <p>Suscríbete para recibir nuestras ofertas y novedades.</p>
+                    <form id="newsletterForm">
+                        <div class="input-group">
+                            <input type="email" class="form-control" id="newsletterEmail" placeholder="Tu correo electrónico" required>
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" type="submit">Suscribirse</button>
+                            </div>
+                        </div>
+                    </form>
+                    <h6 class="text-secondary text-uppercase mt-4 mb-3">Síguenos</h6>
+                    <div class="d-flex">
+                        <a class="btn btn-primary btn-square mr-2" href="#"><i class="fab fa-twitter"></i></a>
+                        <a class="btn btn-primary btn-square mr-2" href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a class="btn btn-primary btn-square mr-2" href="#"><i class="fab fa-linkedin-in"></i></a>
+                        <a class="btn btn-primary btn-square" href="#"><i class="fab fa-instagram"></i></a>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-5 text-md-right">
+                    <img class="img-fluid" src="/images/payments.jpg" alt="Métodos de pago">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Footer End -->
+
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-primary back-to-top"><i class="fa fa-angle-double-up"></i></a>
+    
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/lib/easing/easing.min.js"></script>
+    <script src="/lib/owlcarousel/owl.carousel.min.js"></script>
+    <script src="/mail/jqBootstrapValidation.min.js"></script>
+    <script src="/mail/contact.js"></script>
+    <script src="/js/main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script>
+        const API_URL = 'http://localhost:3000';
+        
+const supplierImagePaths = {
+    'PS-00001': '/Uploads/Sanchez Import/Fotos Sanchez Import',
+    'MAS-i002': '/Uploads/Mastro/Fotos_Mastro',
+    'ARG-C003': '/Uploads/ARG_importaciones/Fotos_ARG',
+    'Mcc-i004': '/Uploads/MultiOcc/Fotos_MultiOcc',
+    'Wic-A1': '/Uploads/WillCars Import/Fotos_WillCars',
+    'kod-Sc001': '/Uploads/Kode import/Fotos_Kode',
+    'Karecho-001': '/Uploads/KarechoShop/Fotos_Karecho',
+    'SUP-WILL1': '/Uploads/Willian Antonio Reinardo/Fotos_Willian'
+};
+
+const PROVEEDORES = {
+    'PS-00001': { nombre: 'Sanchez Import', carpeta: 'Sanchez Import', imagenes: 'Fotos Sanchez Import' },
+    'MAS-i002': { nombre: 'Mastro', carpeta: 'Mastro', imagenes: 'Fotos_Mastro' },
+    'ARG-C003': { nombre: 'ARG Import', carpeta: 'ARG_importaciones', imagenes: 'Fotos_ARG' },
+    'Mcc-i004': { nombre: 'MultiOcc', carpeta: 'MultiOcc', imagenes: 'Fotos_MultiOcc' },
+    'Wic-A1': { nombre: 'WillCars Import', carpeta: 'WillCars Import', imagenes: 'Fotos_WillCars' },
+    'kod-Sc001': { nombre: 'Kode Import', carpeta: 'Kode import', imagenes: 'Fotos_Kode' },
+    'Karecho-001': { nombre: 'KarechoShop', carpeta: 'KarechoShop', imagenes: 'Fotos_Karecho' },
+    'DELIA-001': { nombre: 'Auto Partes Delia Rosa c.a.', carpeta: 'Delia Import', imagenes: 'Fotos_Delia' }
+};
+
+const columnMapping = {
+    'código': 'code',
+    'descripción': 'description',
+    'marca': 'brand',
+    'modelo': 'model',
+    'precio_usd': 'price_usd', // Corregido
+    'referencia': 'reference', // Cambiado de 'ref' a 'reference' para consistencia
+    'proveedor': 'proveedor_id',
+    'imagen': 'image_path'
+};
+
+const requiredColumns = ['código', 'descripción', 'precio_usd'];
+const optionalColumns = ['marca', 'modelo', 'referencia', 'imagen', 'proveedor'];
+
+let previewFiles = [];
+let currentFileIndex = 0;
+let currentPage = 1;
+const rowsPerPage = 10;
+        
+
+function showNotification(message, isError = false) {
+    console.log('showNotification ejecutado:', message, isError);
+    const notification = document.createElement('div');
+    notification.className = `alert ${isError ? 'alert-danger' : 'alert-success'} alert-dismissible fade show custom-alert`;
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 5000);
+}
+
+function isValidUrl(string) {
+    if (!string || string === 'N/A') return true;
+    if (string.match(/^\/Uploads\/.*\.(jpg|png|JPG|PNG)$/i)) return true;
+    try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
+function getProveedorId() {
+    const token = localStorage.getItem('token');
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.proveedor_id;
+        } catch (e) {
+            console.error('Error decoding token:', e);
+            return null;
+        }
+    }
+    return null;
+}
+
+function downloadTemplate() {
+    const templateContent = `"código","descripción","marca","modelo","precio_usd","referencia","imagen"\n"ABC123","Ejemplo de producto","MarcaX","ModeloY","99.99","REF123","/Uploads/WillCars Import/Fotos_WillCars/imagen.jpg"`;
+    const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'plantilla_productos.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
+
+function previewFile(files) {
+    console.log('previewFile ejecutado con archivos:', Array.from(files).map(f => f.name));
+    const previewText = document.getElementById('previewText');
+    const previewTableContainer = document.getElementById('previewTableContainer');
+    const previewTableBody = document.getElementById('previewTableBody');
+    const fileTabs = document.getElementById('fileTabs');
+    previewFiles = [];
+    const proveedorId = getProveedorId();
+
+    if (!proveedorId) {
+        showNotification('No autorizado. Por favor, inicie sesión.', true);
+        $('#loginModal').modal('show');
+        return;
+    }
+
+    if (files.length === 0) {
+        showNotification('No se seleccionaron archivos.', true);
+        return;
+    }
+
+    Array.from(files).forEach((file, index) => {
+        if (!file.name.match(/\.(csv|xlsx)$/i)) {
+            showNotification(`Archivo ${file.name} no soportado. Usa .csv o .xlsx`, true);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let rows, headers;
+            try {
+                if (file.name.endsWith('.csv')) {
+                    let text = e.target.result;
+                    if (text.startsWith('\ufeff')) {
+                        text = text.slice(1);
+                    }
+                    rows = text.split('\n').map(row => {
+                        const cells = row.split(/(?=(?:(?:[^"]*"){2})*[^"]*$),/).map(cell => cell.trim().replace(/^"|"$/g, '') || 'N/A');
+                        return cells;
+                    }).filter(row => row.length > 0 && row.some(cell => cell !== 'N/A'));
+                    headers = rows[0].map(h => h.trim().toLowerCase().replace(/\s/g, '_'));
+                    console.log(`Encabezados de ${file.name}:`, headers);
+                } else {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    headers = rows[0].map(h => h.toString().trim().toLowerCase().replace(/\s/g, '_'));
+                    console.log(`Encabezados de ${file.name}:`, headers);
+                }
+
+                const missingRequiredColumns = requiredColumns.filter(col => !headers.includes(col));
+                if (missingRequiredColumns.length > 0) {
+                    showNotification(`Archivo ${file.name} - Faltan columnas requeridas: ${missingRequiredColumns.join(', ')}`, true);
+                    return;
+                }
+
+                const products = rows.slice(1).map(row => {
+                    const product = {};
+                    headers.forEach((header, index) => {
+                        const key = columnMapping[header] || header;
+                        product[key] = row[index] ? row[index].toString().trim().replace(/^"|"$/g, '') : 'N/A';
+                    });
+                    return product;
+                }).filter(product => {
+                    const errors = [];
+                    if (!product.code || product.code === 'N/A') {
+                        errors.push('Código faltante o inválido');
+                    }
+                    if (!product.description || product.description === 'N/A') {
+                        errors.push('Descripción faltante o inválida');
+                    }
+                    if (product.description && product.description.length > 100) {
+                        errors.push('Descripción excede 100 caracteres');
+                    }
+                    if (!product.price_usd || isNaN(parseFloat(product.price_usd)) || parseFloat(product.price_usd) <= 0) {
+                        errors.push('Precio USD inválido o no positivo');
+                    }
+                    if (product.proveedor_id && product.proveedor_id !== 'N/A' && product.proveedor_id !== proveedorId) {
+                        errors.push(`El proveedor ${product.proveedor_id} no coincide con el usuario autenticado (${proveedorId})`);
+                    }
+                    if (product.image_path && product.image_path !== 'N/A') {
+                        const expectedImagePath = supplierImagePaths[proveedorId];
+                        if (!product.image_path.startsWith(expectedImagePath) || !product.image_path.match(/\.(jpg|png|JPG|PNG)$/i)) {
+                            errors.push(`Ruta de imagen inválida para ${proveedorId}: ${product.image_path}`);
+                        }
+                    }
+                    if (errors.length > 0) {
+                        console.log(`Producto inválido en ${file.name}:`, product, 'Errores:', errors);
+                        showNotification(`Producto inválido en ${file.name}: ${errors.join('; ')}`, true);
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (products.length === 0) {
+                    showNotification(`Archivo ${file.name} - No se encontraron productos válidos.`, true);
+                    return;
+                }
+
+                products.forEach(product => {
+                    if (!headers.includes('proveedor')) {
+                        product.proveedor_id = proveedorId;
+                    }
+                });
+
+                previewFiles.push({ name: file.name, products, file });
+                updatePreviewTabs();
+                if (index === 0) {
+                    currentFileIndex = 0;
+                    currentPage = 1;
+                    showPreviewPage();
+                }
+            } catch (error) {
+                console.error(`Error al procesar ${file.name}:`, error);
+                showNotification(`Error al procesar ${file.name}. Verifica el formato.`, true);
+            }
+        };
+
+        reader.onerror = function() {
+            console.error(`Error al leer ${file.name}`);
+            showNotification(`Error al leer ${file.name}.`, true);
+        };
+
+        if (file.name.endsWith('.csv')) {
+            reader.readAsText(file, 'utf-8');
+        } else {
+            reader.readAsArrayBuffer(file);
+        }
+    });
+}
+
+function updatePreviewTabs() {
+    const fileTabs = document.getElementById('fileTabs');
+    fileTabs.innerHTML = previewFiles.map((file, index) => `
+        <li class="nav-item">
+            <a class="nav-link ${index === currentFileIndex ? 'active' : ''}" href="#" data-file-index="${index}">${file.name}</a>
+        </li>
+    `).join('');
+    document.getElementById('previewText').style.display = 'none';
+    document.getElementById('previewTableContainer').style.display = 'block';
+
+    $('#fileTabs .nav-link').on('click', function(e) {
+        e.preventDefault();
+        currentFileIndex = parseInt($(this).data('file-index'));
+        currentPage = 1;
+        showPreviewPage();
+        $('#fileTabs .nav-link').removeClass('active');
+        $(this).addClass('active');
+    });
+}
+
+function showPreviewPage() {
+    const previewTableBody = document.getElementById('previewTableBody');
+    const file = previewFiles[currentFileIndex];
+    if (!file) return;
+
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    const paginatedProducts = file.products.slice(start, end);
+
+    previewTableBody.innerHTML = paginatedProducts.map(product => `
+        <tr>
+            <td>${product.code}</td>
+            <td>${product.description}</td>
+            <td>${product.brand || 'N/A'}</td>
+            <td>${product.model || 'N/A'}</td>
+            <td>${parseFloat(product.price_usd).toFixed(2)}</td>
+            <td>${product.reference || 'N/A'}</td>
+            <td>${product.image_path || 'N/A'}</td>
+        </tr>
+    `).join('');
+
+    $('#prevPreviewPage').parent().toggleClass('disabled', currentPage <= 1);
+    $('#nextPreviewPage').parent().toggleClass('disabled', end >= file.products.length);
+}
+
+async function loadUploadedFiles() {
+    try {
+        const token = localStorage.getItem('token');
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log(`Cargando listas enviadas para supplier_id: ${payload.proveedor_id}`);
+        const response = await fetch(`${API_URL}/api/csv/pending?supplier_id=${payload.proveedor_id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Error ${response.status}: ${JSON.stringify(errorData)}`);
+        }
+        const data = await response.json();
+        console.log('Archivos pendientes recibidos:', data);
+        const tbody = document.getElementById('pendingFilesTableBody');
+        tbody.innerHTML = data.map(file => `
+            <tr>
+                <td>${DOMPurify.sanitize(file.proveedor_name || file.supplier_id)}</td>
+                <td>${DOMPurify.sanitize(file.file_name)}</td>
+                <td>${new Date(file.created_at).toLocaleString()}</td>
+                <td>
+                    <button class="btn btn-primary preview-csv" data-file-id="${file.id}">Ver CSV</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.querySelectorAll('.preview-csv').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const fileId = btn.dataset.fileId;
+                await previewCsv(fileId);
+            });
+        });
+    } catch (error) {
+        console.error('Error al cargar listas enviadas:', error);
+        showNotification(`Error al cargar listas enviadas: ${error.message}`, true);
+    }
+}
+        
+
+async function previewCsv(fileId) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/csv/preview/${fileId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        const { products, headers, mapping, admin_notes } = await response.json();
+        const tbody = document.createElement('tbody');
+        tbody.innerHTML = products.map(product => `
+            <tr>
+                <td>${product[mapping['código'] || 'code'] || 'N/A'}</td>
+                <td>${product[mapping['descripción'] || 'description'] || 'N/A'}</td>
+                <td>${product[mapping['marca'] || 'brand'] || 'N/A'}</td>
+                <td>${product[mapping['modelo'] || 'model'] || 'N/A'}</td>
+                <td>${parseFloat(product[mapping['precio_usd'] || 'price_usd']) ? parseFloat(product[mapping['precio_usd'] || 'price_usd']).toFixed(2) : 'N/A'}</td>
+                <td>${product[mapping['referencia'] || 'reference'] || 'N/A'}</td>
+                <td>${product[mapping['imagen'] || 'image_path'] || 'N/A'}</td>
+            </tr>
+        `).join('');
+        const modal = `
+            <div class="modal fade" id="csvPreviewModal" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Previsualización de Archivo</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Descripción</th>
+                                        <th>Marca</th>
+                                        <th>Modelo</th>
+                                        <th>Precio USD</th>
+                                        <th>Referencia</th>
+                                        <th>Imagen</th>
+                                    </tr>
+                                </thead>
+                                ${tbody.outerHTML}
+                            </table>
+                            <div class="form-group mt-3">
+                                <label for="adminNotesPreview">Notas del Administrador:</label>
+                                <textarea class="form-control" id="adminNotesPreview" rows="4" readonly>${admin_notes || ''}</textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modal);
+        $('#csvPreviewModal').modal('show');
+        $('#csvPreviewModal').on('hidden.bs.modal', function () {
+            $(this).remove();
+        });
+    } catch (error) {
+        console.error('Error al previsualizar archivo:', error);
+        showNotification(`Error al previsualizar archivo: ${error.message}`, true);
+    }
+}
+
+async function loadInventory(query = '', page = 1) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        showNotification('Por favor, inicia sesión para ver el inventario', true);
+        $('#loginModal').modal('show');
+        $('#noLoginLogo').show();
+        $('#paginationControls').hide();
+        return;
+    }
+    $('#noLoginLogo').hide();
+    $('#paginationControls').show();
+    try {
+        const response = await fetch(`/api/products?page=${page}&limit=12${query ? `&search=${encodeURIComponent(query)}` : ''}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('token');
+            showNotification('Sesión expirada o no autorizada, por favor inicia sesión nuevamente', true);
+            $('#loginModal').modal('show');
+            $('#noLoginLogo').show();
+            $('#paginationControls').hide();
+            return;
+        }
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        const data = await response.json();
+        const inventory = document.getElementById('inventory');
+        inventory.innerHTML = data.products.map(product => {
+            const imagePath = product.image_path || (supplierImagePaths[product.proveedor_id] ? `${supplierImagePaths[product.proveedor_id]}/default.jpg` : '/images/roockstore.jpg');
+            return `
+                <div class="col-lg-4 col-md-6 col-sm-12 pb-1">
+                    <div class="product-item bg-light mb-4">
+                        <div class="product-img position-relative overflow-hidden">
+                            <img class="img-fluid w-100" src="${imagePath}" alt="${product.description}">
+                            <div class="product-action">
+                                <button class="btn btn-details" data-product="${product.code}"><i class="fa fa-search"></i></button>
+                            </div>
+                        </div>
+                        <div class="text-center py-4">
+                            <a class="h6 text-decoration-none text-truncate" href="/proveedores.html?code=${product.code}">${product.description}</a>
+                            <div class="d-flex align-items-center justify-content-center mt-2">
+                                <h5>$${parseFloat(product.price_usd).toFixed(2)}</h5>
+                                <h6 class="text-muted ml-2">${product.brand || 'N/A'} (${product.code})</h6>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-center mb-1">
+                                ${'<small class="fa fa-star text-primary mr-1"></small>'.repeat(Math.floor(product.rating || 5))}
+                                <small>(${product.reviews || 0})</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        $('#prevPage').parent().toggleClass('disabled', page <= 1);
+        $('#nextPage').parent().toggleClass('disabled', !data.hasMore);
+        $('#prevPage').data('page', page - 1);
+        $('#nextPage').data('page', page + 1);
+        $('#pageInfo').text(`${page} de ${data.totalPages || '1'}`);
+    } catch (error) {
+        console.error('Error al cargar inventario:', error);
+        showNotification(`Error al cargar inventario: ${error.message}`, true);
+    }
+}
+
+async function loadNotifications() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        console.log('No hay token, abortando loadNotifications');
+        return;
+    }
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const proveedor_id = payload.proveedor_id;
+        console.log(`Cargando notificaciones para proveedor_id: ${proveedor_id}`);
+        const response = await fetch(`/api/notifications/${proveedor_id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        const notifications = await response.json();
+        console.log('Notificaciones recibidas:', notifications);
+        const notificationsList = document.getElementById('notificationsList');
+        notificationsList.innerHTML = notifications.map(n => `
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${n.message} (${new Date(n.created_at).toLocaleString()})</span>
+                <button class="btn btn-sm btn-primary" onclick="markNotificationRead(${n.id})" ${n.read ? 'disabled' : ''}>Marcar como leído</button>
+            </div>
+        `).join('');
+        const unreadCount = notifications.filter(n => !n.read).length;
+        const badge = document.getElementById('notificationBadge');
+        badge.textContent = unreadCount;
+        badge.style.display = unreadCount > 0 ? 'inline' : 'none';
+        badge.style.backgroundColor = unreadCount < 5 ? '#28a745' : '#dc3545';
+    } catch (error) {
+        console.error('Error en loadNotifications:', error);
+        showNotification(`Error al cargar notificaciones: ${error.message}`, true);
+    }
+}
+
+async function markNotificationRead(notificationId) {
+    const token = localStorage.getItem('token');
+    try {
+        const response = await fetch(`/api/notifications/${notificationId}/read`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        showNotification('Notificación marcada como leída', false);
+        loadNotifications();
+    } catch (error) {
+        console.error('Error al marcar notificación:', error);
+        showNotification(`Error: ${error.message}`, true);
+    }
+}
+
+async function showDetails(button) {
+    const productCode = button.dataset.product;
+    const token = localStorage.getItem('token');
+    try {
+        const response = await fetch(`/api/products/${productCode}?proveedor_id=${JSON.parse(atob(token.split('.')[1])).proveedor_id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        const product = await response.json();
+        const modal = `
+            <div class="modal fade" id="productDetailsModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${product.description}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <img src="${product.image_path || '/img/willcars-1.jpg'}" class="img-fluid mb-3" alt="${product.description}">
+                            <p><strong>Código:</strong> ${product.code}</p>
+                            <p><strong>Marca:</strong> ${product.brand || 'N/A'}</p>
+                            <p><strong>Modelo:</strong> ${product.model || 'N/A'}</p>
+                            <p><strong>Precio USD:</strong> $${parseFloat(product.price_usd).toFixed(2)}</p>
+                            <p><strong>Referencia:</strong> ${product.reference || 'N/A'}</p>
+                            <p><strong>Categoría:</strong> ${product.category || 'N/A'}</p>
+                            <p><strong>Descuento:</strong> ${product.discount ? product.discount + '%' : 'N/A'}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modal);
+        $('#productDetailsModal').modal('show');
+        $('#productDetailsModal').on('hidden.bs.modal', function () {
+            $(this).remove();
+        });
+    } catch (error) {
+        console.error('Error al cargar detalles:', error);
+        showNotification(`Error al cargar detalles: ${error.message}`, true);
+    }
+}
+
+$(document).ready(function() {
+    console.log("Documento listo");
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const token = localStorage.getItem('token');
+
+    function updateUserInfo() {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                $('#authLink').text(`Cerrar Sesión (${payload.email})`);
+                $('#noLoginLogo').hide();
+                $('#paginationControls').show();
+            } catch (e) {
+                console.error('Error decoding token:', e);
+                $('#authLink').text('Iniciar Sesión');
+                $('#noLoginLogo').show();
+                $('#paginationControls').hide();
+                $('#inventory').empty();
+            }
+        } else {
+            $('#authLink').text('Iniciar Sesión');
+            $('#noLoginLogo').show();
+            $('#paginationControls').hide();
+            $('#inventory').empty();
+        }
+    }
+
+    $('#authLink').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en authLink');
+        const token = localStorage.getItem('token');
+        if (token) {
+            console.log('Cerrando sesión');
+            localStorage.removeItem('token');
+            updateUserInfo();
+            showNotification('Sesión cerrada', false);
+            $('#inventory').empty();
+            console.log('Intentando abrir loginModal tras cerrar sesión');
+            $('#loginModal').modal('show');
+        } else {
+            console.log('Intentando abrir loginModal desde authLink');
+            $('#loginModal').modal('show');
+        }
+    });
+
+    $('#uploadedFilesLink').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en uploadedFilesLink');
+        loadUploadedFiles();
+        $('#uploadedFilesModal').modal('show');
+    });
+
+    $('#notificationsLink').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en notificationsLink');
+        loadNotifications();
+        $('#notificationsModal').modal('show');
+    });
+
+    $('#loginModal').on('hidden.bs.modal', function () {
+        console.log('loginModal cerrado');
+        $('#showLoginButton').focus();
+    });
+
+    $('#logoLoginTrigger').click(function() {
+        console.log('Clic en logoLoginTrigger');
+        $('#loginModal').modal('show');
+    });
+
+    $('#loginForm').submit(async function(e) {
+        e.preventDefault();
+        console.log('Submit en loginForm');
+        const email = $('#loginEmail').val();
+        const password = $('#loginPassword').val();
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(data.error || `Error ${response.status}: ${errorText}`);
+            }
+            localStorage.setItem('token', data.token);
+            console.log('Cerrando loginModal');
+            $('#loginModal').modal('hide');
+            setTimeout(() => showNotification('Inicio de sesión exitoso', false), 300);
+            loadInventory(code || '');
+            loadUploadedFiles();
+            loadNotifications();
+            updateUserInfo();
+        } catch (error) {
+            console.error('Error al iniciar sesión:', error);
+            showNotification(`Error al iniciar sesión: ${error.message}`, true);
+        }
+    });
+
+    $('#showRegisterLink, #showRegisterLinkModal').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en showRegisterLink o showRegisterLinkModal');
+        $('#registerModal').modal('show');
+    });
+
+    $('#showLoginLink').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en showLoginLink');
+        $('#registerModal').modal('hide');
+        $('#loginModal').modal('show');
+    });
+
+    $('#forgotPasswordLink').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en forgotPasswordLink');
+        $('#loginModal').modal('hide');
+        $('#forgotPasswordModal').modal('show');
+    });
+
+    $('#registerForm').submit(async function(e) {
+        e.preventDefault();
+        console.log('Submit en registerForm');
+        const password = $('#registerPassword').val();
+        const confirmPassword = $('#confirmPassword').val();
+        if (password !== confirmPassword) {
+            showNotification('Las contraseñas no coinciden', true);
+            return;
+        }
+        const formData = {
+            name: $('#registerName').val(),
+            email: $('#registerEmail').val(),
+            password: password,
+            role: 'proveedor',
+            proveedorName: $('#proveedorName').val()
+        };
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(data.error || `Error ${response.status}: ${errorText}`);
+            }
+            localStorage.setItem('token', data.token);
+            console.log('Cerrando registerModal');
+            $('#registerModal').modal('hide');
+            setTimeout(() => showNotification('Registro exitoso, pendiente de aprobación', false), 300);
+            updateUserInfo();
+            loadUploadedFiles();
+            loadNotifications();
+        } catch (error) {
+            console.error('Error al registrarse:', error);
+            showNotification(`Error al registrarse: ${error.message}`, true);
+        }
+    });
+
+    $('#forgotPasswordForm').submit(async function(e) {
+        e.preventDefault();
+        console.log('Submit en forgotPasswordForm');
+        const email = $('#forgotPasswordEmail').val();
+        try {
+            const response = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(data.error || `Error ${response.status}: ${errorText}`);
+            }
+            $('#forgotPasswordModal').modal('hide');
+            showNotification('Se ha enviado un enlace de restablecimiento a tu correo', false);
+        } catch (error) {
+            console.error('Error al solicitar restablecimiento:', error);
+            showNotification(`Error al solicitar restablecimiento: ${error.message}`, true);
+        }
+    });
+
+    $('#prevPage').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en prevPage');
+        const page = $(this).data('page');
+        if (page >= 1) loadInventory('', page);
+    });
+
+    $('#nextPage').click(function(e) {
+        e.preventDefault();
+        console.log('Clic en nextPage');
+        const page = $(this).data('page');
+        loadInventory('', page);
+    });
+
+    $('#inventory').on('click', '.btn-details', function(e) {
+        e.preventDefault();
+        console.log('Clic en btn-details');
+        const productCode = $(this).data('product');
+        if (productCode) {
+            console.log('Showing details for product:', productCode);
+            showDetails(this);
+        } else {
+            console.error('No product code found');
+        }
+    });
+
+    $('#downloadTemplateBtn').on('click', downloadTemplate);
+
+    $('#prevPreviewPage').on('click', function(e) {
+        e.preventDefault();
+        if (currentPage > 1) {
+            currentPage--;
+            showPreviewPage();
+        }
+    });
+
+    $('#nextPreviewPage').on('click', function(e) {
+        e.preventDefault();
+        if (currentPage * rowsPerPage < previewFiles[currentFileIndex].products.length) {
+            currentPage++;
+            showPreviewPage();
+        }
+    });
+
+    // Drag-and-Drop Upload Logic
+    const dropzone = document.getElementById('dropzone');
+    const dropzoneFileInput = document.getElementById('dropzoneFile');
+    const dropzoneForm = document.getElementById('dropzoneForm');
+    const chooseFileBtn = document.getElementById('chooseFileBtn');
+
+    if (dropzone && dropzoneFileInput && dropzoneForm && chooseFileBtn) {
+        console.log('Elementos dropzone encontrados, configurando eventos...');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
+            document.addEventListener(event, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
+            dropzone.addEventListener(event, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        dropzone.addEventListener('dragenter', () => {
+            console.log('Dragenter en dropzone');
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragover', () => {
+            console.log('Dragover en dropzone');
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            console.log('Dragleave en dropzone');
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            console.log('Drop en dropzone');
+            dropzone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                console.log('Archivos soltados:', Array.from(files).map(f => f.name));
+                dropzoneFileInput.files = files;
+                dropzone.querySelector('.card-text').textContent = `Archivos seleccionados: ${files.length}`;
+                previewFile(files);
+            }
+        });
+
+        chooseFileBtn.addEventListener('click', () => {
+            console.log('Clic en el botón Seleccionar Archivo');
+            dropzoneFileInput.click();
+        });
+
+        dropzoneFileInput.addEventListener('change', () => {
+            console.log('Archivos seleccionados manualmente:', Array.from(dropzoneFileInput.files).map(f => f.name));
+            if (dropzoneFileInput.files.length > 0) {
+                dropzone.querySelector('.card-text').textContent = `Archivos seleccionados: ${dropzoneFileInput.files.length}`;
+                previewFile(dropzoneFileInput.files);
+            } else {
+                dropzone.querySelector('.card-text').textContent = 'Arrastra y suelta tu archivo Excel o CSV aquí';
+                document.getElementById('previewText').style.display = 'block';
+                document.getElementById('previewTableContainer').style.display = 'none';
+            }
+        });
+
+        dropzoneForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('Submit en dropzoneForm - Validando y enviando al servidor');
+
+            if (previewFiles.length === 0) {
+                showNotification('Por favor, selecciona y previsualiza al menos un archivo válido.', true);
+                return;
+            }
+
+            for (const previewFile of previewFiles) {
+                const { file, products } = previewFile;
+                if (products.length === 0) {
+                    showNotification(`Archivo ${file.name} no contiene productos válidos.`, true);
+                    continue;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+                const notes = document.getElementById('dropzoneNotes').value.trim();
+                if (notes) {
+                    formData.append('notes', notes);
+                }
+
+                console.log('Contenido de FormData:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(`${key}: ${value instanceof File ? value.name : value}`);
+                }
+
+                showNotification(`Cargando archivo ${file.name}, por favor espere...`, false);
+                document.getElementById('loadingSpinner').classList.add('show');
+
+                try {
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                        showNotification('No autorizado. Por favor, inicie sesión.', true);
+                        $('#loginModal').modal('show');
+                        return;
+                    }
+
+                    const response = await fetch('/api/csv/upload', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: formData,
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        showNotification(result.message || `Archivo ${file.name} subido y pendiente de revisión.`, false);
+                    } else {
+                        console.error('Error del servidor:', result);
+                        showNotification(result.error || `Error al subir ${file.name}: ${result.message || 'Error desconocido'}`, true);
+                    }
+                } catch (error) {
+                    console.error(`Error al subir ${file.name}:`, error);
+                    showNotification(`Error de conexión con el servidor: ${error.message}`, true);
+                } finally {
+                    document.getElementById('loadingSpinner').classList.remove('show');
+                }
+            }
+
+            dropzoneForm.reset();
+            dropzone.querySelector('.card-text').textContent = 'Arrastra y suelta tu archivo Excel o CSV aquí';
+            document.getElementById('previewText').style.display = 'block';
+            document.getElementById('previewTableContainer').style.display = 'none';
+            previewFiles = [];
+            updatePreviewTabs();
+            loadUploadedFiles();
+            loadNotifications();
+        });
+    } else {
+        console.error('Elementos dropzone, dropzoneFile, dropzoneForm o chooseFileBtn no encontrados');
+    }
+
+    updateUserInfo();
+    loadNotifications();
+    loadInventory(code || '');
+});
+</script>
+            
+</body>
+</html>

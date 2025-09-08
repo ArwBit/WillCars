@@ -1,0 +1,29 @@
+{
+  "name": "will-cars-frontend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "start": "http-server -p 8080",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Frontend for Will Cars Web",
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "bootstrap": "^4.6.2",
+    "http-server": "^14.1.1",
+    "jquery": "^3.7.1",
+    "owl.carousel": "^2.3.4"
+  },
+  "devDependencies": {
+    "@eslint/css": "^0.7.0",
+    "@eslint/json": "^0.12.0",
+    "@eslint/markdown": "^6.4.0",
+    "eslint": "^9.26.0"
+  }
+}

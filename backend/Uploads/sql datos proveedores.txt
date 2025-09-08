@@ -1,0 +1,460 @@
+Ejemplo de cómo podrías personalizar el INSERT:
+
+SQL
+
+INSERT INTO suppliers (name, logo_path, description) VALUES
+('WillCars Frenos', '/supplier_logos/willcars-1.jpg', 'Proveedor de repuestos de frenos de alta calidad para diversas marcas.'),
+('Autopartes Express', '/supplier_logos/autoexp.png', 'Especialistas en partes de motor y suspensión.'), -- ¡Reemplaza 'autoexp.png' con tu nombre de archivo real!
+('Global Parts', '/supplier_logos/globalparts.jpg', 'Importadores directos de repuestos originales y genéricos.'); -- ¡Reemplaza 'globalparts.jpg' con tu nombre de archivo real!
+Una vez que hayas modificado el INSERT con tus datos reales y los nombres de archivo de tus logos, ejecuta este comando en tu consola psql:
+
+SQL
+
+INSERT INTO suppliers (name, logo_path, description) VALUES
+('Proveedor A', '/supplier_logos/willcars-1.jpg', 'Descripción del Proveedor A'),
+('Proveedor B', '/supplier_logos/P0001.png', 'Descripción del Proveedor B'),
+('Proveedor C', '/supplier_logos/P0002.webp', 'Descripción del Proveedor C');
+(¡Recuerda que debes modificar las líneas dentro del VALUES con tus propios datos antes de pegarlo!)
+
+Deberías ver como respuesta:
+
+INSERT 0 3
+willcars=#
+
+
+insert real
+
+INSERT INTO suppliers (name, logo_path, description) VALUES
+('WillCars Import ', '/supplier_logos/willcars-1.jpg', 'Importador repuestos Automotriz, Maquinaria pesada CCS'),
+('Sanchez Import', '/supplier_logos/SIR-0001.jpg', 'Importadores directos de repuestos originales y genéricos SC'),
+('ARP Automotive', '/supplier_logos/ARP-0010.jpg', 'Filtros y Bujias Bqto'),
+('Mastro Autoparts', '/supplier_logos/MAP-00024.jpg', 'Mayorista de repuestos Binance'),
+('Danamultiocc', '/supplier_logos/MMO-00001.jpg', 'Importadores de repuestos CCS');
+
+********************************************************************************************************
+Paso 7: Actualizar productos existentes para asociarlos a proveedores
+Si no estás seguro de cuáles códigos tienes, puedes ejecutar:
+
+SQL
+
+SELECT code, description FROM products LIMIT 10;
+
+Esto te mostrará los primeros 10 códigos y descripciones de tus productos.
+
+Una vez que tengas algunos códigos de producto reales, edita el siguiente bloque SQL para que los WHERE code = '...' coincidan con tus productos y el name = '...' coincida con los nombres de proveedor que acabas de insertar:
+
+SQL
+
+
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'CODIGO-PRODUCTO-1';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Sanchez Import') WHERE code = 'CODIGO-PRODUCTO-2';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'ARP Automotive') WHERE code = 'CODIGO-PRODUCTO-3';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Mastro Autoparts') WHERE code = 'CODIGO-PRODUCTO-4';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Danamultiocc') WHERE code = 'CODIGO-PRODUCTO-5';
+
+Puedes añadir o quitar líneas según cuántos productos quieras asociar a proveedores).
+
+Deberías ver como respuesta (para cada línea UPDATE que se ejecute y encuentre un producto):
+
+UPDATE 1
+willcars=#
+(Si un code no existe, verás UPDATE 0).
+
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'WC-1-CAUCHOS L5 PAYLOADER 280';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Sanchez Import') WHERE code = 'PS-00001-AMORTIGUADOR COMPUERTA SUPERCARRY';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'ARP Automotive') WHERE code = 'AP-00002-FILTRO GASOLINA HILUX 2TR KAVAK TOYOTA';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Mastro Autoparts') WHERE code = 'MAP-EOO03-BOBINA ENCENDIDO TOYOTA FORTUNER';
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Danamultiocc') WHERE code = 'DAN-00003-AMORTIGUADOR FORD SUPER DUTY';
+
+Por favor, personaliza este UPDATE con tus códigos de producto reales, ejecútalo y dime qué resultado obtienes.
+
+-- Enlazar 'inyector' con 'WillCars Import'
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'TEST-500';
+
+-- Enlazar un amortiguador de compuerta con 'Sanchez Import'
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Sanchez Import') WHERE code = '81801-85501-000';
+
+-- Enlazar un filtro con 'ARP Automotive'
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'ARP Automotive') WHERE code = 'TEST-007';
+
+-- Enlazar 'Pastillas de frenos Nissan' con 'Mastro Autoparts'
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Mastro Autoparts') WHERE code = '758452p';
+
+-- Enlazar 'AMORTIGUADOR DELT AVEO LH' con 'Danamultiocc'
+UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Danamultiocc') WHERE code = '96408662';
+
+
+
+Imagen	CODIGO	DESCRIPCION	MARCA	MODELO	PROVEEDOR	USD	REF
+TEST-008	Bujía Test 8	TestBrand	F300	PS-00001	$10.00	$12.00
+
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'TEST-500';UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'TEST-500';UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'TEST-500';
+UPDATE 1
+UPDATE 1
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Sanchez Import') WHERE code = '81801-85501-000';
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'ARP Automotive') WHERE code = 'TEST-007';
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Mastro Autoparts') WHERE code = '758452p';
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Danamultiocc') WHERE code = '96408662';
+UPDATE 1
+willcars=# \d suppliers
+                                        Table "public.suppliers"
+    Column     |           Type           | Collation | Nullable |                Default
+---------------+--------------------------+-----------+----------+---------------------------------------
+ id            | integer                  |           | not null | nextval('suppliers_id_seq'::regclass)
+ name          | character varying(255)   |           | not null |
+ logo_path     | character varying(255)   |           |          |
+ description   | text                     |           |          |
+ contact_email | character varying(255)   |           |          |
+ contact_phone | character varying(50)    |           |          |
+ created_at    | timestamp with time zone |           |          | CURRENT_TIMESTAMP
+ updated_at    | timestamp with time zone |           |          | CURRENT_TIMESTAMP
+Indexes:
+    "suppliers_pkey" PRIMARY KEY, btree (id)
+    "suppliers_name_key" UNIQUE CONSTRAINT, btree (name)
+Referenced by:
+    TABLE "products" CONSTRAINT "products_supplier_id_fkey" FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
+Triggers:
+    update_suppliers_updated_at BEFORE UPDATE ON suppliers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+
+willcars=#
+willcars=# SELECT * FROM suppliers;
+ id |       name       |           logo_path            |                         description                          | contact_email | contact_phone |          created_at           |          updated_at
+----+------------------+--------------------------------+--------------------------------------------------------------+---------------+---------------+-------------------------------+-------------------------------
+  1 | WillCars         | /supplier_logos/willcars-1.jpg | Importador repuestos Automotriz, Maquinaria pesada CCS       |               |               | 2025-06-21 12:55:09.039765-04 | 2025-06-21 12:55:09.039765-04
+  2 | Sanchez_Import   | /supplier_logos/SIR-0001.jpg   | Importadores directos de repuestos originales y genéricos SC |               |               | 2025-06-21 12:55:09.039765-04 | 2025-06-21 12:55:09.039765-04
+  3 | ARP_Automotive   | /supplier_logos/ARP-0010.jpg   | Filtros y Bujias Bqto                                        |               |               | 2025-06-21 12:55:09.039765-04 | 2025-06-21 12:55:09.039765-04
+  6 | WillCars Import  | /supplier_logos/willcars-1.jpg | Importador repuestos Automotriz, Maquinaria pesada CCS       |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+  7 | Sanchez Import   | /supplier_logos/SIR-0001.jpg   | Importadores directos de repuestos originales y genéricos SC |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+  8 | ARP Automotive   | /supplier_logos/ARP-0010.jpg   | Filtros y Bujias Bqto                                        |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+  9 | Mastro Autoparts | /supplier_logos/MAP-00024.jpg  | Mayorista de repuestos Binance                               |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+ 10 | Danamultiocc     | /supplier_logos/MMO-00001.jpg  | Importadores de repuestos CCS                                |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+(8 rows)
+
+
+willcars=#
+willcars=# \d products
+                                           Table "public.products"
+     Column      |            Type             | Collation | Nullable |               Default
+-----------------+-----------------------------+-----------+----------+--------------------------------------
+ code            | character varying(50)       |           | not null |
+ description     | text                        |           | not null |
+ brand           | character varying(100)      |           |          |
+ model           | character varying(100)      |           |          |
+ usd             | numeric(10,2)               |           | not null |
+ ref             | numeric(10,2)               |           | not null |
+ created_at      | timestamp without time zone |           |          | CURRENT_TIMESTAMP
+ image_path      | character varying(255)      |           |          |
+ id              | integer                     |           | not null | nextval('products_id_seq'::regclass)
+ proveedor_id    | character varying(50)       |           |          |
+ product_code_id | text                        |           |          |
+ discount        | numeric                     |           |          |
+ supplier_id     | integer                     |           |          |
+Indexes:
+    "products_pkey" PRIMARY KEY, btree (id)
+    "idx_products_code" btree (code)
+    "products_code_unique" UNIQUE CONSTRAINT, btree (code)
+Foreign-key constraints:
+    "products_proveedor_id_fkey" FOREIGN KEY (proveedor_id) REFERENCES proveedores(id)
+    "products_supplier_id_fkey" FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
+Referenced by:
+    TABLE "order_items" CONSTRAINT "order_items_product_id_fkey" FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+Triggers:
+    trigger_update_product_code_id BEFORE INSERT OR UPDATE OF code, proveedor_id ON products FOR EACH ROW EXECUTE FUNCTION update_product_code_id()
+
+willcars=#
+willcars=# SELECT code, description, supplier_id FROM products WHERE supplier_id IS NOT NULL LIMIT 10;SELECT code, description, supplier_id FROM products WHERE supplier_id IS NOT NULL LIMIT 10;
+      code       |                description                | supplier_id
+-----------------+-------------------------------------------+-------------
+ TEST-500        | inyector                                  |           6
+ 81801-85501-000 | AMORTIGUADOR COMPUERTA SUZ. SUPERCARRY LH |           7
+ 96408662        | AMORTIGUADOR DELT AVEO LH (EL PAR)        |          10
+ TEST-007        | Filtro Test 7                             |           8
+ 758452p         | Pastillas de frenos Nissan                |           9
+(5 rows)
+
+
+      code       |                description                | supplier_id
+-----------------+-------------------------------------------+-------------
+ TEST-500        | inyector                                  |           6
+ 81801-85501-000 | AMORTIGUADOR COMPUERTA SUZ. SUPERCARRY LH |           7
+ 96408662        | AMORTIGUADOR DELT AVEO LH (EL PAR)        |          10
+ TEST-007        | Filtro Test 7                             |           8
+ 758452p         | Pastillas de frenos Nissan                |           9
+(5 rows)
+
+
+willcars=#
+willcars=#
+willcars=#
+
+ultimos datos
+Server [localhost]: localhost
+Database [postgres]: willcars
+Port [5432]:
+Username [postgres]: postgres
+Password for user postgres:
+psql (17.4)
+WARNING: Console code page (437) differs from Windows code page (1252)
+         8-bit characters might not work correctly. See psql reference
+         page "Notes for Windows users" for details.
+Type "help" for help.
+
+willcars=# DROP TABLE IF EXISTS suppliers CASCADE;
+NOTICE:  la tabla «suppliers» no existe, omitiendo
+DROP TABLE
+willcars=#
+willcars=#
+willcars=#
+willcars=# CREATE TABLE suppliers (
+willcars(#     id SERIAL PRIMARY KEY,
+willcars(#     name VARCHAR(255) NOT NULL UNIQUE,
+willcars(#     logo_path VARCHAR(255),
+willcars(#     description TEXT,
+willcars(#     contact_email VARCHAR(255),
+willcars(#     contact_phone VARCHAR(50),
+willcars(#     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+willcars(#     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+willcars(# );
+CREATE TABLE
+willcars=#
+willcars=#
+willcars=# CREATE OR REPLACE FUNCTION update_updated_at_column()
+willcars-# RETURNS TRIGGER AS $$
+willcars$# BEGIN
+willcars$#     NEW.updated_at = NOW();
+willcars$#     RETURN NEW;
+willcars$# END;
+willcars$# $$ LANGUAGE plpgsql;
+CREATE FUNCTION
+willcars=#
+willcars=#
+willcars=# CREATE TRIGGER update_suppliers_updated_at
+willcars-# BEFORE UPDATE ON suppliers
+willcars-# FOR EACH ROW
+willcars-# EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER
+willcars=#
+willcars=#
+willcars=# ALTER TABLE products ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL;
+ALTER TABLE
+willcars=# INSERT INTO suppliers (name, logo_path, description) VALUES
+willcars-# ('WillCars', '/supplier_logos/willcars-1.jpg', 'Importador repuestos Automotriz, Maquinaria pesada CCS'),
+willcars-# ('Sanchez_Import', '/supplier_logos/SIR-0001.jpg', 'Importadores directos de repuestos originales y genéricos SC'),
+willcars-# ('ARP_Automotive', '/supplier_logos/ARP-0010.jpg', 'Filtros y Bujias Bqto');
+INSERT 0 3
+willcars=# ('Mastro_Autoparts', '/supplier_logos/MAP-00024.jpg', 'Mayorista de repuestos Binance');
+ERROR:  error de sintaxis en o cerca de «'Mastro_Autoparts'»
+LINE 1: ('Mastro_Autoparts', '/supplier_logos/MAP-00024.jpg', 'Mayor...
+         ^
+willcars=# ('Danamultiocc', '/supplier_logos/MMO-00001.jpg', 'Importadores de repuestos CCS');INSERT INTO suppliers (name, logo_path, description) VALUES
+ERROR:  error de sintaxis en o cerca de «'Danamultiocc'»
+LINE 1: ('Danamultiocc', '/supplier_logos/MMO-00001.jpg', 'Importado...
+         ^
+willcars-# ('WillCars', '/supplier_logos/willcars-1.jpg', 'Importador repuestos Automotriz, Maquinaria pesada CCS'),
+willcars-# ('Sanchez_Import', '/supplier_logos/SIR-0001.jpg', 'Importadores directos de repuestos originales y genéricos SC'),
+willcars-# ('ARP_Automotive', '/supplier_logos/ARP-0010.jpg', 'Filtros y Bujias Bqto');
+ERROR:  llave duplicada viola restricción de unicidad «suppliers_name_key»
+DETAIL:  Ya existe la llave (name)=(WillCars).
+willcars=# ('Mastro_Autoparts', '/supplier_logos/MAP-00024.jpg', 'Mayorista de repuestos Binance');
+ERROR:  error de sintaxis en o cerca de «'Mastro_Autoparts'»
+LINE 1: ('Mastro_Autoparts', '/supplier_logos/MAP-00024.jpg', 'Mayor...
+         ^
+willcars=# ('Danamultiocc', '/supplier_logos/MMO-00001.jpg', 'Importadores de repuestos CCS');
+ERROR:  error de sintaxis en o cerca de «'Danamultiocc'»
+LINE 1: ('Danamultiocc', '/supplier_logos/MMO-00001.jpg', 'Importado...
+         ^
+willcars=#
+willcars=#
+willcars=#
+willcars=# INSERT INTO suppliers (name, logo_path, description) VALUES
+willcars-# ('WillCars', '/supplier_logos/willcars-1.jpg', 'Importador repuestos Automotriz, Maquinaria pesada CCS'),
+willcars-# ('Sanchez Import', '/supplier_logos/SIR-0001.jpg', 'Importadores directos de repuestos originales y genéricos SC'),
+willcars-# ('ARP Automotive', '/supplier_logos/ARP-0010.jpg', 'Filtros y Bujias Bqto'),
+willcars-# ('Mastro Autoparts', '/supplier_logos/MAP-00024.jpg', 'Mayorista de repuestos Binance'),
+willcars-# ('Danamultiocc', '/supplier_logos/MMO-00001.jpg', 'Importadores de repuestos CCS');
+ERROR:  llave duplicada viola restricción de unicidad «suppliers_name_key»
+DETAIL:  Ya existe la llave (name)=(WillCars).
+willcars=#
+willcars=#
+willcars=#
+willcars=#
+willcars=# INSERT INTO suppliers (name, logo_path, description) VALUES
+willcars-# ('WillCars Import ', '/supplier_logos/willcars-1.jpg', 'Importador repuestos Automotriz, Maquinaria pesada CCS'),
+willcars-# ('Sanchez Import', '/supplier_logos/SIR-0001.jpg', 'Importadores directos de repuestos originales y genéricos SC'),
+willcars-# ('ARP Automotive', '/supplier_logos/ARP-0010.jpg', 'Filtros y Bujias Bqto'),
+willcars-# ('Mastro Autoparts', '/supplier_logos/MAP-00024.jpg', 'Mayorista de repuestos Binance'),
+willcars-# ('Danamultiocc', '/supplier_logos/MMO-00001.jpg', 'Importadores de repuestos CCS');
+INSERT 0 5
+willcars=# SELECT code, description FROM products LIMIT 10;
+      code       |                     description
+-----------------+-----------------------------------------------------
+ TEST-500        | inyector
+ 96408662        | AMORTIGUADOR DELT AVEO LH (EL PAR)
+ 96408661        | AMORTIGUADOR DELT AVEO RH (EL PAR)
+ 96858479        | AMORTIGUADOR DELT CAPTIVA LH (EL PAR)
+ 96858480        | AMORTIGUADOR DELT CAPTIVA RH (EL PAR)
+ 93248261-QP     | AMORTIGUADOR DELT CORSA TODOS
+ 93312907        | AMORTIGUADOR DELT CORSA 1.8 MONTANA MERIVA (EL PAR)
+ 93312908        | AMORTIGUADOR DELT CORSA 1.8 MONTANA MERIVA (EL PAR)
+ 96666915-P      | AMORTIGUADOR COMPUERTA SPARK MATIZ
+ 81801-85501-000 | AMORTIGUADOR COMPUERTA SUZ. SUPERCARRY LH
+(10 rows)
+
+
+willcars=#
+willcars=#
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'WC-1-CAUCHOS L5 PAYLOADER 280';
+UPDATE 0
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Sanchez Import') WHERE code = 'PS-00001-AMORTIGUADOR COMPUERTA SUPERCARRY';
+UPDATE 0
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'ARP Automotive') WHERE code = 'AP-00002-FILTRO GASOLINA HILUX 2TR KAVAK TOYOTA';
+UPDATE 0
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Mastro Autoparts') WHERE code = 'MAP-EOO03-BOBINA ENCENDIDO TOYOTA FORTUNER';
+UPDATE 0
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Danamultiocc') WHERE code = 'DAN-00003-AMORTIGUADOR FORD SUPER DUTY';
+UPDATE 0
+willcars=#
+willcars=#
+willcars=#
+willcars=#
+willcars=#
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'WC-1-CAUCHOS L5 PAYLOADER 280';
+UPDATE 0
+willcars=# SELECT code, description FROM products LIMIT 20;
+      code       |                     description
+-----------------+-----------------------------------------------------
+ TEST-500        | inyector
+ 96408662        | AMORTIGUADOR DELT AVEO LH (EL PAR)
+ 96408661        | AMORTIGUADOR DELT AVEO RH (EL PAR)
+ 96858479        | AMORTIGUADOR DELT CAPTIVA LH (EL PAR)
+ 96858480        | AMORTIGUADOR DELT CAPTIVA RH (EL PAR)
+ 93248261-QP     | AMORTIGUADOR DELT CORSA TODOS
+ 93312907        | AMORTIGUADOR DELT CORSA 1.8 MONTANA MERIVA (EL PAR)
+ 93312908        | AMORTIGUADOR DELT CORSA 1.8 MONTANA MERIVA (EL PAR)
+ 96666915-P      | AMORTIGUADOR COMPUERTA SPARK MATIZ
+ 81801-85501-000 | AMORTIGUADOR COMPUERTA SUZ. SUPERCARRY LH
+ 81802-85501-000 | AMORTIGUADOR COMPUERTA SUZ. SUPERCARRY RH
+ 96586888        | AMORTIGUADOR DELT AVEO LH (EL PAR)
+ 96586887        | AMORTIGUADOR DELT AVEO RH (EL PAR)
+ TEST-001        | Producto de prueba
+ 758452p         | Pastillas de frenos Nissan
+ PS-12345        | PASTILLAS DE FRENO
+ TEST001         | Producto de Prueba 1
+ TEST002         | Producto de Prueba 2
+ TEST-006        | Freno Test 6
+ TEST-007        | Filtro Test 7
+(20 rows)
+
+
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'TEST-500';UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'TEST-500';UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'WillCars Import ') WHERE code = 'TEST-500';
+UPDATE 1
+UPDATE 1
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Sanchez Import') WHERE code = '81801-85501-000';
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'ARP Automotive') WHERE code = 'TEST-007';
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Mastro Autoparts') WHERE code = '758452p';
+UPDATE 1
+willcars=# UPDATE products SET supplier_id = (SELECT id FROM suppliers WHERE name = 'Danamultiocc') WHERE code = '96408662';
+UPDATE 1
+willcars=# \d suppliers
+                                        Table "public.suppliers"
+    Column     |           Type           | Collation | Nullable |                Default
+---------------+--------------------------+-----------+----------+---------------------------------------
+ id            | integer                  |           | not null | nextval('suppliers_id_seq'::regclass)
+ name          | character varying(255)   |           | not null |
+ logo_path     | character varying(255)   |           |          |
+ description   | text                     |           |          |
+ contact_email | character varying(255)   |           |          |
+ contact_phone | character varying(50)    |           |          |
+ created_at    | timestamp with time zone |           |          | CURRENT_TIMESTAMP
+ updated_at    | timestamp with time zone |           |          | CURRENT_TIMESTAMP
+Indexes:
+    "suppliers_pkey" PRIMARY KEY, btree (id)
+    "suppliers_name_key" UNIQUE CONSTRAINT, btree (name)
+Referenced by:
+    TABLE "products" CONSTRAINT "products_supplier_id_fkey" FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
+Triggers:
+    update_suppliers_updated_at BEFORE UPDATE ON suppliers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+
+willcars=#
+willcars=# SELECT * FROM suppliers;
+ id |       name       |           logo_path            |                         description                          | contact_email | contact_phone |          created_at           |          updated_at
+----+------------------+--------------------------------+--------------------------------------------------------------+---------------+---------------+-------------------------------+-------------------------------
+  1 | WillCars         | /supplier_logos/willcars-1.jpg | Importador repuestos Automotriz, Maquinaria pesada CCS       |               |               | 2025-06-21 12:55:09.039765-04 | 2025-06-21 12:55:09.039765-04
+  2 | Sanchez_Import   | /supplier_logos/SIR-0001.jpg   | Importadores directos de repuestos originales y genéricos SC |               |               | 2025-06-21 12:55:09.039765-04 | 2025-06-21 12:55:09.039765-04
+  3 | ARP_Automotive   | /supplier_logos/ARP-0010.jpg   | Filtros y Bujias Bqto                                        |               |               | 2025-06-21 12:55:09.039765-04 | 2025-06-21 12:55:09.039765-04
+  6 | WillCars Import  | /supplier_logos/willcars-1.jpg | Importador repuestos Automotriz, Maquinaria pesada CCS       |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+  7 | Sanchez Import   | /supplier_logos/SIR-0001.jpg   | Importadores directos de repuestos originales y genéricos SC |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+  8 | ARP Automotive   | /supplier_logos/ARP-0010.jpg   | Filtros y Bujias Bqto                                        |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+  9 | Mastro Autoparts | /supplier_logos/MAP-00024.jpg  | Mayorista de repuestos Binance                               |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+ 10 | Danamultiocc     | /supplier_logos/MMO-00001.jpg  | Importadores de repuestos CCS                                |               |               | 2025-06-21 12:58:44.305011-04 | 2025-06-21 12:58:44.305011-04
+(8 rows)
+
+
+willcars=#
+willcars=# \d products
+                                           Table "public.products"
+     Column      |            Type             | Collation | Nullable |               Default
+-----------------+-----------------------------+-----------+----------+--------------------------------------
+ code            | character varying(50)       |           | not null |
+ description     | text                        |           | not null |
+ brand           | character varying(100)      |           |          |
+ model           | character varying(100)      |           |          |
+ usd             | numeric(10,2)               |           | not null |
+ ref             | numeric(10,2)               |           | not null |
+ created_at      | timestamp without time zone |           |          | CURRENT_TIMESTAMP
+ image_path      | character varying(255)      |           |          |
+ id              | integer                     |           | not null | nextval('products_id_seq'::regclass)
+ proveedor_id    | character varying(50)       |           |          |
+ product_code_id | text                        |           |          |
+ discount        | numeric                     |           |          |
+ supplier_id     | integer                     |           |          |
+Indexes:
+    "products_pkey" PRIMARY KEY, btree (id)
+    "idx_products_code" btree (code)
+    "products_code_unique" UNIQUE CONSTRAINT, btree (code)
+Foreign-key constraints:
+    "products_proveedor_id_fkey" FOREIGN KEY (proveedor_id) REFERENCES proveedores(id)
+    "products_supplier_id_fkey" FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
+Referenced by:
+    TABLE "order_items" CONSTRAINT "order_items_product_id_fkey" FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+Triggers:
+    trigger_update_product_code_id BEFORE INSERT OR UPDATE OF code, proveedor_id ON products FOR EACH ROW EXECUTE FUNCTION update_product_code_id()
+
+willcars=#
+willcars=# SELECT code, description, supplier_id FROM products WHERE supplier_id IS NOT NULL LIMIT 10;SELECT code, description, supplier_id FROM products WHERE supplier_id IS NOT NULL LIMIT 10;
+      code       |                description                | supplier_id
+-----------------+-------------------------------------------+-------------
+ TEST-500        | inyector                                  |           6
+ 81801-85501-000 | AMORTIGUADOR COMPUERTA SUZ. SUPERCARRY LH |           7
+ 96408662        | AMORTIGUADOR DELT AVEO LH (EL PAR)        |          10
+ TEST-007        | Filtro Test 7                             |           8
+ 758452p         | Pastillas de frenos Nissan                |           9
+(5 rows)
+
+
+      code       |                description                | supplier_id
+-----------------+-------------------------------------------+-------------
+ TEST-500        | inyector                                  |           6
+ 81801-85501-000 | AMORTIGUADOR COMPUERTA SUZ. SUPERCARRY LH |           7
+ 96408662        | AMORTIGUADOR DELT AVEO LH (EL PAR)        |          10
+ TEST-007        | Filtro Test 7                             |           8
+ 758452p         | Pastillas de frenos Nissan                |           9
+(5 rows)
+
+
+willcars=#
+willcars=#
+willcars=# \
+
+
+
+

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta http-equiv="Content-Security-Policy" content="
+default-src 'self';
+script-src 'self' https://code.jquery.com https://cdn.jsdelivr.net http://localhost:3000 https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com https://cdn.socket.io 'unsafe-inline' 'unsafe-hashes';
+style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com 'unsafe-inline';
+font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com;
+img-src 'self' http://localhost:3000 data:;
+connect-src 'self' http://localhost:3000 ws://localhost:3000 wss://localhost:3000;
+form-action 'self';
+">  -->
+    <title>Will Cars Admin - Productos</title>
+    <link rel="icon" href="../img/favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../css/admin.css">
+    <link rel="stylesheet" href="../css/admin-dark.css">
+    
+    <style>
+        #notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none;
+            min-width: 200px;
+            text-align: center;
+            color: white;
+        }
+        #notification.show {
+            display: block;
+        }
+        #notification.success {
+            background-color: #28a745;
+            color: white;
+        }
+        #notification.error {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status-indicator.green {
+            background-color: green;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .status-indicator.red {
+            background-color: red;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="user-profile">
+            <img src="../img/willcars-1.jpg" alt="Will Cars Admin Profile">
+            <div class="user-info">
+                <h4 id="userName">Administrador</h4>
+                <p id="userRole">Super Admin</p>
+            </div>
+        </div>
+        <nav class="nav-menu">
+            <div class="nav-item">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="Usuarios.html" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Usuarios</span>
+                </a>
+            </div>
+            <div class="nav-item active">
+                <a href="Productos.html" class="nav-link">
+                    <i class="fas fa-box-open"></i>
+                    <span>Productos</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="Pedidos.html" class="nav-link">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Pedidos</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="Ventas.html" class="nav-link">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Ventas</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="Configuracion.html" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Configuración</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <button id="logoutBtn" class="nav-link btn btn-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Cerrar Sesión</span>
+                </button>
+            </div>
+        </nav>
+    </aside>
+    <main class="main-content">
+        <div id="notification"></div>
+        <div class="top-bar">
+            <button class="toggle-btn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="productSearchInput" placeholder="Buscar productos...">
+            </div>
+            <div class="top-bar-right">
+                <div class="notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notificationBadge">0</span>
+                </div>
+                <button id="darkModeToggle" class="dark-toggle-btn">🌙</button>
+            </div>
+        </div>
+        <h1 class="section-title">Lista de Productos</h1>
+        <div class="d-flex gap-2 mb-3">
+            <button class="btn btn-add" id="newProductBtn">
+                <i class="fas fa-plus"></i> Nuevo Producto
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-import-specific" id="sanchezImportBtn" data-proveedor-id="PS-00001">
+                    <i class="fas fa-file-import"></i> Sánchez Import
+                    <span class="status-indicator" id="sanchezStatusIndicator"></span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="sanchezDropdown">
+                    <a href="#" class="dropdown-item" data-action="show" data-proveedor-id="PS-00001">Mostrar</a>
+                    <a href="#" class="dropdown-item" data-action="activate" data-proveedor-id="PS-00001">Activar</a>
+                    <a href="#" class="dropdown-item" data-action="deactivate" data-proveedor-id="PS-00001">Desactivar</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-import-specific" id="mastroBtn" data-proveedor-id="MAS-i002">
+                    <i class="fas fa-file-import"></i> Mastro
+                    <span class="status-indicator" id="mastroStatusIndicator"></span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="mastroDropdown">
+                    <a href="#" class="dropdown-item" data-action="show" data-proveedor-id="MAS-i002">Mostrar</a>
+                    <a href="#" class="dropdown-item" data-action="activate" data-proveedor-id="MAS-i002">Activar</a>
+                    <a href="#" class="dropdown-item" data-action="deactivate" data-proveedor-id="MAS-i002">Desactivar</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-import-specific" id="argImportBtn" data-proveedor-id="ARG-C003">
+                    <i class="fas fa-file-import"></i> ARG Import
+                    <span class="status-indicator" id="argImportStatusIndicator"></span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="argImportDropdown">
+                    <a href="#" class="dropdown-item" data-action="show" data-proveedor-id="ARG-C003">Mostrar</a>
+                    <a href="#" class="dropdown-item" data-action="activate" data-proveedor-id="ARG-C003">Activar</a>
+                    <a href="#" class="dropdown-item" data-action="deactivate" data-proveedor-id="ARG-C003">Desactivar</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-import-specific" id="multiOccBtn" data-proveedor-id="Mcc-i004">
+                    <i class="fas fa-file-import"></i> Multi Occ
+                    <span class="status-indicator" id="multiOccStatusIndicator"></span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="multiOccDropdown">
+                    <a href="#" class="dropdown-item" data-action="show" data-proveedor-id="Mcc-i004">Mostrar</a>
+                    <a href="#" class="dropdown-item" data-action="activate" data-proveedor-id="Mcc-i004">Activar</a>
+                    <a href="#" class="dropdown-item" data-action="deactivate" data-proveedor-id="Mcc-i004">Desactivar</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-import-specific" id="willcarsImportBtn" data-proveedor-id="Wic-A1">
+                    <i class="fas fa-file-import"></i> WillCars Import
+                    <span class="status-indicator" id="willcarsImportStatusIndicator"></span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="willcarsDropdown">
+                    <a href="#" class="dropdown-item" data-action="show" data-proveedor-id="Wic-A1">Mostrar</a>
+                    <a href="#" class="dropdown-item" data-action="activate" data-proveedor-id="Wic-A1">Activar</a>
+                    <a href="#" class="dropdown-item" data-action="deactivate" data-proveedor-id="Wic-A1">Desactivar</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-import-specific" id="kodeImportBtn" data-proveedor-id="kod-Sc001">
+                    <i class="fas fa-file-import"></i> Kode Import
+                    <span class="status-indicator" id="kodeImportStatusIndicator"></span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="kodeDropdown">
+                    <a href="#" class="dropdown-item" data-action="show" data-proveedor-id="kod-Sc001">Mostrar</a>
+                    <a href="#" class="dropdown-item" data-action="activate" data-proveedor-id="kod-Sc001">Activar</a>
+                    <a href="#" class="dropdown-item" data-action="deactivate" data-proveedor-id="kod-Sc001">Desactivar</a>
+                </div>
+            </div>
+            <button class="btn btn-secondary" id="showAllProductsBtn">
+                <i class="fas fa-list"></i> Mostrar Todos
+            </button>
+            <button class="btn btn-primary" id="allProductsBtn">
+                <i class="fas fa-list-alt"></i> Base de Datos
+            </button>
+        </div>
+        <!-- Tabla de Archivos Pendientes -->
+<div class="card">
+    <div class="card-header">
+        <h5>Archivos Pendientes de Proveedores</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Archivo</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="pendingFilesTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Previsualización -->
+<div id="csvPreviewModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="csvPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="csvPreviewModalLabel">Previsualización de Archivo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="csvPreviewContent"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+       
+        <h2>Todos los Productos</h2>
+        <table id="products-table" class="table">
+            <thead>
+                <tr>
+                    <th>Imagen</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>USD</th>
+                    <th>REF</th>
+                    <th>ID Proveedor</th>
+                    <th>Proveedor</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="productsTableBody"></tbody>
+        </table>
+        <div class="pagination">
+            <button id="prevProductPage" disabled>Anterior</button>
+            <span id="productPageInfo">Página 1</span>
+            <button id="nextProductPage">Siguiente</button>
+        </div>
+        <div id="productModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="productModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="productModalLabel">Añadir/Editar Producto</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>Añadir Producto Manualmente</h6>
+                        <form id="productForm">
+                            <input type="hidden" id="originalProductCode">
+                            <div class="form-group">
+                                <label for="productCode">Código:</label>
+                                <input type="text" class="form-control" id="productCode" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="productCodeId">Código de Producto (ID):</label>
+                                <input type="text" class="form-control" id="productCodeId" placeholder="Opcional, por defecto igual al código">
+                            </div>
+                            <div class="form-group">
+                                <label for="productDescription">Descripción:</label>
+                                <input type="text" class="form-control" id="productDescription" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="productBrand">Marca:</label>
+                                <input type="text" class="form-control" id="productBrand">
+                            </div>
+                            <div class="form-group">
+                                <label for="productModel">Modelo:</label>
+                                <input type="text" class="form-control" id="productModel">
+                            </div>
+                            <div class="form-group">
+                                <label for="productUsd">Precio USD:</label>
+                                <input type="number" class="form-control" id="productUsd" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="productRef">Precio REF:</label>
+                                <input type="number" class="form-control" id="productRef" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="productDiscount">Descuento (%):</label>
+                                <input type="number" class="form-control" id="productDiscount" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="proveedor_id">Proveedor:</label>
+                                <select class="form-control" id="proveedor_id" required>
+                                    <option value="">Selecciona un proveedor</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="productImage">Imagen:</label>
+                                <input type="file" class="form-control-file" id="productImage" accept="image/jpeg,image/png">
+                                <img id="imagePreview" src="#" alt="Vista previa" style="display: none; max-width: 100%; margin-top: 10px;">
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="btn btn-cancel" id="cancelProductBtn">Cancelar</button>
+                                <button type="submit" class="btn btn-save">Guardar</button>
+                            </div>
+                        </form>
+                        <hr>
+                        <h6>Cargar Productos desde CSV</h6>
+                        <form id="bulkUploadForm" enctype="multipart/form-data">
+    <div class="form-group">
+        <label for="bulkUploadFile">Seleccionar archivo CSV:</label>
+        <input type="file" class="form-control-file" id="bulkUploadFile" name="file" accept=".csv" required>
+    </div>
+    <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" data-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Cargar CSV</button>
+    </div>
+</form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="confirmModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirmar Eliminación</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="confirmMessage"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="confirmNo">No</button>
+                        <button class="btn btn-primary" id="confirmYes">Sí</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="databaseModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="databaseModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="databaseModalLabel">Gestión de Proveedores</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <table class="table" id="suppliersTable">
+                            <thead>
+                                <tr>
+                                    <th>Proveedor</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.8.0/socket.io.min.js"></script>
+    <script src="../js/admin.js"></script>
+    <script src="../js/config.js"></script>
+    <!--<script src="/js/products-frontend.js"></script>-->
+ 
+</body>
+</html>

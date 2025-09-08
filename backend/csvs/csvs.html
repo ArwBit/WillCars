@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Procesar CSVs</title>
+    <link rel="icon" href="../img/favicon.ico">
+</head>
+<body>
+    <h1>Procesar CSVs de Proveedores</h1>
+    <select id="proveedor">
+        <option value="PS-00001">Sanchez Import</option>
+        <option value="MAS-i002">Mastro Import</option>
+        <option value="ARG-C003">ARG Import</option>
+        <option value="Mcc-i004">MultiOcc</option>
+        <option value="Wic-A1">WillCars Import</option>
+        <option value="kod-Sc001">Kode Import</option>
+    </select>
+    <input type="file" id="csvFile" accept=".csv">
+    <button onclick="processCsv()">Seleccionar CSV y Procesar</button>
+    <button onclick="combineCsvs()">Generar CSV Global</button>
+    <p id="status"></p>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        function processCsv() {
+            const proveedorId = document.getElementById('proveedor').value;
+            const csvFile = document.getElementById('csvFile').files[0];
+            if (!csvFile) {
+                document.getElementById('status').innerText = 'Por favor, selecciona un archivo CSV';
+                return;
+            }
+            ipcRenderer.send('process-csv', { csvPath: csvFile.path, proveedorId });
+        }
+
+        function combineCsvs() {
+            ipcRenderer.send('combine-csvs');
+        }
+
+        ipcRenderer.on('csv-processed', (event, { success, message }) => {
+            document.getElementById('status').innerText = message;
+        });
+
+        ipcRenderer.on('csv-combined', (event, { success, message }) => {
+            document.getElementById('status').innerText = message;
+        });
+    </script>
+</body>
+</html>
