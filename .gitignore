@@ -19,3 +19,6 @@ utilidades/scripts batch servidores.txt
 utilidades/twilio_2FA_recovery_code.txt
 utilidades/BD/
 online-shop-website-template.jpg
+.phcode.json
+.vscode/
+frontend/scss/
